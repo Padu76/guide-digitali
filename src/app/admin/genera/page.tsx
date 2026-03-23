@@ -148,53 +148,184 @@ export default function GeneraGuidePage() {
     }
   }
 
-  // Apre l'HTML generato in una nuova finestra per stampare/salvare come PDF
-  function handleSavePdf() {
-    if (!result) return;
-    // Genera HTML completo con sfondo bianco per stampa
+  // Converte markdown in HTML professionale per PDF
+  function markdownToPdfHtml(md: string): string {
     const c = CATEGORIES[category].color;
     const imgMap: Record<string, string> = {};
-    result.images?.forEach(img => { imgMap[img.chapter] = img.url; });
+    result?.images?.forEach(img => { imgMap[img.chapter] = img.url; });
 
-    const lines = editedMarkdown.split('\n');
-    let bodyHtml = '';
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t) { bodyHtml += '<div style="height:8px;"></div>'; continue; }
-      if (t.startsWith('### ')) bodyHtml += `<h3 style="color:#475569;font-size:15px;font-weight:700;margin:20px 0 8px;">${t.slice(4)}</h3>`;
-      else if (t.startsWith('## ')) {
-        const heading = t.slice(3);
-        bodyHtml += `<h2 style="color:${c};font-size:20px;font-weight:800;margin:32px 0 10px;padding-bottom:6px;border-bottom:2px solid ${c}25;">${heading}</h2>`;
-        if (imgMap[heading]) bodyHtml += `<div style="margin:12px 0 20px;text-align:center;"><img src="${imgMap[heading]}" style="max-width:100%;max-height:260px;border-radius:8px;"></div>`;
+    const lines = md.split('\n');
+    let html = '';
+    let inBlockquote = false;
+    let blockquoteLines: string[] = [];
+
+    function flushBlockquote() {
+      if (blockquoteLines.length > 0) {
+        const content = blockquoteLines.map(l => renderInline(l)).join('<br>');
+        const isAction = blockquoteLines.some(l => l.toLowerCase().includes('da fare subito') || l.toLowerCase().includes('azione'));
+        if (isAction) {
+          html += `<div style="background:${c}0D;border:1px solid ${c}30;border-left:4px solid ${c};padding:16px 20px;margin:16px 0;border-radius:0 8px 8px 0;">
+            <div style="color:${c};font-weight:700;font-size:12px;margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">Azione Pratica</div>
+            <div style="color:#1e293b;font-size:12px;line-height:1.7;">${content}</div></div>`;
+        } else {
+          html += `<div style="background:#f8fafc;border-left:4px solid ${c};padding:14px 18px;margin:14px 0;border-radius:0 8px 8px 0;">
+            <div style="color:#334155;font-size:12px;line-height:1.7;font-style:italic;">${content}</div></div>`;
+        }
+        blockquoteLines = [];
       }
-      else if (t.startsWith('# ')) bodyHtml += `<h1 style="color:#0f172a;font-size:28px;font-weight:800;margin:36px 0 14px;">${t.slice(2)}</h1>`;
-      else if (t.startsWith('> ')) bodyHtml += `<div style="border-left:3px solid ${c};background:${c}08;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;"><span style="color:#334155;font-size:12px;">${t.slice(2)}</span></div>`;
-      else if (t.startsWith('- ') || t.startsWith('* ')) bodyHtml += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;">&#8226;</span><span style="color:#334155;font-size:12px;line-height:1.65;">${t.slice(2)}</span></div>`;
-      else if (/^\d+\. /.test(t)) { const txt = t.replace(/^\d+\.\s/, ''); const num = t.match(/^(\d+)\./)?.[1]; bodyHtml += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;font-weight:700;min-width:18px;">${num}.</span><span style="color:#334155;font-size:12px;line-height:1.65;">${txt}</span></div>`; }
-      else if (t === '---') bodyHtml += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px auto;width:50%;">';
-      else bodyHtml += `<p style="color:#334155;font-size:12px;line-height:1.8;margin:6px 0;text-align:justify;">${t.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#0f172a;">$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')}</p>`;
+      inBlockquote = false;
     }
 
+    function renderInline(text: string): string {
+      return text
+        .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#0f172a;">$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/`(.+?)`/g, `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px;color:${c};font-weight:600;">$1</code>`);
+    }
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const t = line.trim();
+
+      // Blockquote accumulator
+      if (t.startsWith('> ')) {
+        inBlockquote = true;
+        blockquoteLines.push(t.slice(2));
+        continue;
+      } else if (inBlockquote) {
+        flushBlockquote();
+      }
+
+      if (!t) { html += '<div style="height:10px;"></div>'; continue; }
+
+      // Headings
+      if (t.startsWith('#### ')) {
+        html += `<h4 style="color:#334155;font-size:13px;font-weight:700;margin:14px 0 6px;">${renderInline(t.slice(5))}</h4>`;
+      } else if (t.startsWith('### ')) {
+        html += `<h3 style="color:#1e293b;font-size:15px;font-weight:700;margin:22px 0 8px;padding-left:12px;border-left:3px solid ${c};">${renderInline(t.slice(4))}</h3>`;
+      } else if (t.startsWith('## ')) {
+        const heading = t.slice(3);
+        // Page break prima di ogni capitolo
+        html += `<div style="page-break-before:always;"></div>`;
+        html += `<div style="margin-bottom:24px;">`;
+        html += `<h2 style="color:${c};font-size:22px;font-weight:800;margin:0 0 8px;line-height:1.3;">${renderInline(heading)}</h2>`;
+        html += `<div style="width:50px;height:3px;background:${c};border-radius:2px;"></div>`;
+        html += `</div>`;
+        // Immagine capitolo
+        const imgUrl = imgMap[heading];
+        if (imgUrl) {
+          html += `<div style="margin:0 0 24px;text-align:center;"><img src="${imgUrl}" style="max-width:100%;height:auto;max-height:220px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.08);" alt="${heading}"></div>`;
+        }
+      } else if (t.startsWith('# ')) {
+        html += `<h1 style="color:#0f172a;font-size:28px;font-weight:800;margin:40px 0 16px;line-height:1.2;">${renderInline(t.slice(2))}</h1>`;
+      }
+      // Table (raw markdown)
+      else if (t.startsWith('|')) {
+        // Collect table lines
+        const tableLines = [t];
+        while (i + 1 < lines.length && lines[i + 1].trim().startsWith('|')) {
+          i++;
+          tableLines.push(lines[i].trim());
+        }
+        // Parse table
+        const rows = tableLines.filter(r => !r.match(/^\|[\s-|]+\|$/)).map(r =>
+          r.split('|').map(c => c.trim()).filter(c => c)
+        );
+        if (rows.length > 0) {
+          html += `<table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:11px;">`;
+          rows.forEach((row, ri) => {
+            html += '<tr>';
+            row.forEach(cell => {
+              const tag = ri === 0 ? 'th' : 'td';
+              const bg = ri === 0 ? `background:${c};color:white;font-weight:700;` : (ri % 2 === 0 ? 'background:#f8fafc;' : '');
+              html += `<${tag} style="padding:8px 12px;border:1px solid #e2e8f0;text-align:left;${bg}color:${ri === 0 ? '#fff' : '#334155'};">${renderInline(cell)}</${tag}>`;
+            });
+            html += '</tr>';
+          });
+          html += '</table>';
+        }
+      }
+      // Lists
+      else if (t.startsWith('- ') || t.startsWith('* ')) {
+        html += `<div style="display:flex;align-items:flex-start;margin:5px 0 5px 16px;"><span style="color:${c};margin-right:10px;font-size:16px;line-height:1.2;">&#8226;</span><span style="color:#334155;font-size:12px;line-height:1.7;">${renderInline(t.slice(2))}</span></div>`;
+      } else if (/^\d+\.\s/.test(t)) {
+        const num = t.match(/^(\d+)\./)?.[1] || '1';
+        const txt = t.replace(/^\d+\.\s/, '');
+        html += `<div style="display:flex;align-items:flex-start;margin:5px 0 5px 16px;"><span style="background:${c};color:white;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-right:10px;flex-shrink:0;">${num}</span><span style="color:#334155;font-size:12px;line-height:1.7;">${renderInline(txt)}</span></div>`;
+      }
+      // Divider
+      else if (t === '---') {
+        html += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:28px auto;width:40%;">';
+      }
+      // Paragraph
+      else {
+        html += `<p style="color:#334155;font-size:12px;line-height:1.85;margin:7px 0;text-align:justify;">${renderInline(t)}</p>`;
+      }
+    }
+    if (inBlockquote) flushBlockquote();
+    return html;
+  }
+
+  function handleSavePdf() {
+    if (!result) return;
+    const c = CATEGORIES[category].color;
+    const bodyHtml = markdownToPdfHtml(editedMarkdown);
+
+    // Genera sommario dai ## headings
+    const tocItems = editedMarkdown.split('\n').filter(l => l.trim().startsWith('## ')).map(l => l.trim().slice(3));
+    let tocHtml = '';
+    tocItems.forEach((item, i) => {
+      tocHtml += `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dotted #e2e8f0;">
+        <span style="color:#334155;font-size:13px;"><span style="color:${c};font-weight:800;margin-right:14px;font-size:14px;">${String(i + 1).padStart(2, '0')}</span>${item}</span>
+        <span style="color:#94a3b8;font-size:12px;">${i + 3}</span></div>`;
+    });
+
     const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
-<style>@page{size:A4;margin:20mm 18mm;}body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#334155;margin:0;padding:24px 32px;}
-@media print{body{padding:0;}}</style></head><body>
-<div style="text-align:center;padding:60px 0 40px;">
-<span style="background:${c};color:#fff;padding:6px 20px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;">${CATEGORIES[category].label}</span>
-<h1 style="font-size:34px;font-weight:800;color:#0f172a;margin:24px 0 12px;line-height:1.2;">${title}</h1>
-<div style="width:60px;height:3px;background:${c};margin:16px auto;"></div>
-<p style="color:#64748b;font-size:13px;">GuideDigitali — guidedigitali.vercel.app</p>
-</div><hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0 30px;">
+<style>
+  @page { size: A4; margin: 22mm 20mm; }
+  body { font-family: 'Segoe UI', -apple-system, Arial, sans-serif; background: #fff; color: #334155; margin: 0; padding: 0; }
+  @media print { body { padding: 0; } .no-print { display: none; } }
+  @media screen { body { max-width: 800px; margin: 0 auto; padding: 40px 32px; } }
+</style></head><body>
+
+<!-- COPERTINA -->
+<div style="text-align:center;padding:100px 0 60px;page-break-after:always;">
+  <div style="margin-bottom:28px;">
+    <span style="background:${c};color:white;padding:8px 24px;border-radius:24px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${CATEGORIES[category].label}</span>
+  </div>
+  <h1 style="font-size:38px;font-weight:800;color:#0f172a;margin:28px auto;line-height:1.15;max-width:500px;">${title}</h1>
+  <div style="width:70px;height:4px;background:${c};margin:28px auto;border-radius:2px;"></div>
+  <p style="color:#64748b;font-size:14px;max-width:400px;margin:0 auto;line-height:1.7;">Guida pratica e completa.<br>Scaricabile e stampabile.</p>
+  <div style="margin-top:100px;">
+    <span style="color:${c};font-weight:700;font-size:13px;">GuideDigitali</span>
+    <span style="color:#94a3b8;font-size:12px;"> — guidedigitali.vercel.app</span>
+  </div>
+</div>
+
+<!-- SOMMARIO -->
+<div style="page-break-after:always;">
+  <h2 style="color:#0f172a;font-size:26px;font-weight:800;margin-bottom:28px;">Sommario</h2>
+  ${tocHtml}
+</div>
+
+<!-- CONTENUTO -->
 ${bodyHtml}
-<div style="text-align:center;margin-top:60px;padding-top:20px;border-top:1px solid #e2e8f0;">
-<p style="color:${c};font-weight:700;font-size:14px;">GuideDigitali</p>
-<p style="color:#94a3b8;font-size:11px;">guidedigitali.vercel.app</p>
-</div></body></html>`;
+
+<!-- ULTIMA PAGINA -->
+<div style="page-break-before:always;text-align:center;padding-top:120px;">
+  <div style="width:60px;height:4px;background:${c};margin:0 auto 28px;border-radius:2px;"></div>
+  <p style="color:${c};font-weight:800;font-size:18px;">GuideDigitali</p>
+  <p style="color:#64748b;font-size:13px;margin-top:8px;">guidedigitali.vercel.app</p>
+  <p style="color:#94a3b8;font-size:12px;margin-top:24px;max-width:320px;margin-left:auto;margin-right:auto;line-height:1.7;">Scopri tutte le guide su fitness, AI, mindset e biohacking.</p>
+</div>
+
+</body></html>`;
 
     const w = window.open('', '_blank');
     if (w) {
       w.document.write(fullHtml);
       w.document.close();
-      setTimeout(() => w.print(), 500);
+      setTimeout(() => w.print(), 800);
     }
   }
 

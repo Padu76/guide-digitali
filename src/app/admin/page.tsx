@@ -118,6 +118,21 @@ export default function GuideAdminPage() {
     }
   }
 
+  async function handlePreviewGuide(pdfPath: string) {
+    try {
+      const res = await fetch(pdfPath);
+      if (!res.ok) { alert('Errore caricamento guida'); return; }
+      const html = await res.text();
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+      }
+    } catch {
+      alert('Errore apertura guida');
+    }
+  }
+
   async function handlePrintGuide(pdfPath: string) {
     try {
       const res = await fetch(pdfPath);
@@ -258,10 +273,10 @@ export default function GuideAdminPage() {
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {guide.pdf_path && (
-                        <a href={guide.pdf_path} target="_blank"
+                        <button onClick={() => handlePreviewGuide(guide.pdf_path)}
                           className="px-3 py-1.5 rounded-lg bg-cyan-900/20 text-xs text-cyan-400 hover:bg-cyan-900/40 transition">
                           Anteprima
-                        </a>
+                        </button>
                       )}
                       {guide.pdf_path && (
                         <button onClick={() => handlePrintGuide(guide.pdf_path)}
