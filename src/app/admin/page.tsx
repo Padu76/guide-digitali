@@ -4,12 +4,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { GuideOrder, AdminStats } from '@/lib/guide-types';
-import { formatPrice, formatDate } from '@/lib/guide-utils';
+import { GuideOrder, AdminStats, GuideProduct } from '@/lib/guide-types';
+import { formatPrice, formatDate, CATEGORY_CONFIG } from '@/lib/guide-utils';
 
 export default function GuideAdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [orders, setOrders] = useState<GuideOrder[]>([]);
+  const [guides, setGuides] = useState<GuideProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -17,6 +18,7 @@ export default function GuideAdminPage() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [activeTab, setActiveTab] = useState<'orders' | 'guides'>('guides');
 
   useEffect(() => {
     // Controlla se gia autenticato via cookie
@@ -31,6 +33,7 @@ export default function GuideAdminPage() {
     if (authed) {
       fetchStats();
       fetchOrders();
+      fetchGuides();
     }
   }, [authed, page, statusFilter]);
 
@@ -80,6 +83,41 @@ export default function GuideAdminPage() {
     }
   }
 
+  async function fetchGuides() {
+    try {
+      const res = await fetch('/api/admin/guides');
+      if (res.ok) {
+        const data = await res.json();
+        setGuides(data.guides || []);
+      }
+    } catch (err) {
+      console.error('Errore guide:', err);
+    }
+  }
+
+  async function toggleGuide(id: string, active: boolean) {
+    try {
+      await fetch('/api/admin/guides', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, active }),
+      });
+      setGuides(prev => prev.map(g => g.id === id ? { ...g, active } : g));
+    } catch (err) {
+      console.error('Errore toggle:', err);
+    }
+  }
+
+  async function deleteGuide(id: string, title: string) {
+    if (!confirm(`Eliminare "${title}"? Azione irreversibile.`)) return;
+    try {
+      await fetch(`/api/admin/guides?id=${id}`, { method: 'DELETE' });
+      setGuides(prev => prev.filter(g => g.id !== id));
+    } catch (err) {
+      console.error('Errore eliminazione:', err);
+    }
+  }
+
   async function handleExport() {
     window.open('/api/admin/export', '_blank');
   }
@@ -119,17 +157,16 @@ export default function GuideAdminPage() {
             <p className="text-xs text-gray-500">Dashboard ordini e statistiche</p>
           </div>
           <div className="flex items-center gap-3">
-            <button
-              onClick={handleExport}
-              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-all"
-            >
+            <a href="/admin/genera"
+              className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-violet-600 text-sm text-white font-semibold hover:opacity-90 transition-all">
+              + Nuova Guida
+            </a>
+            <button onClick={handleExport}
+              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-all">
               Export CSV
             </button>
-            <a
-              href="/"
-              className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-300 transition-colors"
-            >
-              Torna allo store
+            <a href="/" className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-300 transition-colors">
+              Store
             </a>
           </div>
         </div>
@@ -153,6 +190,83 @@ export default function GuideAdminPage() {
           </div>
         )}
 
+        {/* TABS */}
+        <div className="flex gap-1 mb-6 bg-[#0a0a1a] rounded-lg p-1 border border-white/5 w-fit">
+          <button onClick={() => setActiveTab('guides')}
+            className={`px-5 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'guides' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+            Guide ({guides.length})
+          </button>
+          <button onClick={() => setActiveTab('orders')}
+            className={`px-5 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'orders' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+            Ordini ({total})
+          </button>
+        </div>
+
+        {/* GUIDE PUBBLICATE */}
+        {activeTab === 'guides' && (
+          <div className="space-y-3 mb-8">
+            {guides.length === 0 ? (
+              <div className="text-center py-12 text-gray-600">
+                <p className="text-lg mb-2">Nessuna guida pubblicata</p>
+                <a href="/admin/genera" className="text-cyan-400 text-sm hover:underline">Crea la tua prima guida</a>
+              </div>
+            ) : (
+              guides.map(guide => {
+                const catConf = CATEGORY_CONFIG[guide.category] || { label: guide.category, textColor: 'text-gray-400', bgColor: 'bg-gray-900', borderColor: 'border-gray-800' };
+                return (
+                  <div key={guide.id} className={`rounded-xl border bg-[#0a0a1a] p-4 flex items-center gap-4 transition ${guide.active ? 'border-white/5' : 'border-red-900/30 opacity-60'}`}>
+                    {/* Cover mini */}
+                    <div className="w-16 h-20 rounded-lg overflow-hidden bg-gray-800 flex-shrink-0">
+                      {guide.cover_image ? (
+                        <img src={guide.cover_image} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-gray-600 text-xl font-bold">
+                          {guide.title.charAt(0)}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold uppercase ${catConf.bgColor} ${catConf.textColor} ${catConf.borderColor} border`}>
+                          {catConf.label}
+                        </span>
+                        {!guide.active && <span className="text-[10px] px-2 py-0.5 rounded bg-red-900/20 text-red-400 border border-red-900">Disattivata</span>}
+                      </div>
+                      <h3 className="text-sm font-semibold text-white truncate">{guide.title}</h3>
+                      <div className="flex items-center gap-4 mt-1 text-xs text-gray-500">
+                        <span>{formatPrice(guide.price)}</span>
+                        {guide.page_count && <span>{guide.page_count} pag.</span>}
+                        <span>{guide.download_count} download</span>
+                        <span>/guide/{guide.slug}</span>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <a href={`/${guide.slug}`} target="_blank"
+                        className="px-3 py-1.5 rounded-lg bg-white/5 text-xs text-gray-400 hover:text-white transition">
+                        Vedi
+                      </a>
+                      <button onClick={() => toggleGuide(guide.id, !guide.active)}
+                        className={`px-3 py-1.5 rounded-lg text-xs transition ${guide.active ? 'bg-amber-900/20 text-amber-400 hover:bg-amber-900/40' : 'bg-green-900/20 text-green-400 hover:bg-green-900/40'}`}>
+                        {guide.active ? 'Disattiva' : 'Attiva'}
+                      </button>
+                      <button onClick={() => deleteGuide(guide.id, guide.title)}
+                        className="px-3 py-1.5 rounded-lg bg-red-900/20 text-xs text-red-400 hover:bg-red-900/40 transition">
+                        Elimina
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* ORDINI */}
+        {activeTab === 'orders' && <>
         <div className="flex items-center gap-3 mb-4">
           <span className="text-sm text-gray-500">Filtra:</span>
           {['', 'completed', 'pending', 'failed', 'refunded'].map(s => (
@@ -246,6 +360,7 @@ export default function GuideAdminPage() {
             </div>
           </div>
         )}
+        </>}
       </div>
     </div>
   );
