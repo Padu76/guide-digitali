@@ -149,7 +149,14 @@ export default function GeneraGuidePage() {
   }
 
   function autoSlug(t: string) {
-    return t.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+    return t
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // accenti: e->e, a->a, u->u
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .trim();
   }
 
   function formatInline(text: string): string {
