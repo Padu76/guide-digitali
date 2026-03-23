@@ -78,10 +78,10 @@ export default function GuideCard({ product }: GuideCardProps) {
 
           <button
             onClick={() => isInCart ? removeItem(product.id) : addItem(product)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            className={`px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
               isInCart
                 ? 'bg-white/5 text-gray-400 border border-white/10 hover:bg-red-500/10 hover:text-red-400 hover:border-red-500/20'
-                : `bg-gradient-to-r ${config.gradientFrom} ${config.gradientTo} text-white hover:opacity-90`
+                : 'bg-cyan-500 text-white hover:bg-cyan-400 shadow-lg shadow-cyan-500/20'
             }`}
           >
             {isInCart ? 'Rimuovi' : 'Aggiungi'}
