@@ -114,7 +114,7 @@ export default function GuideDetailPage() {
               </div>
 
               {/* Anteprima prime pagine */}
-              <GuidePreview description={product.description} title={product.title} color={config.glowColor} />
+              <GuidePreview description={product.description} title={product.title} color={config.glowColor} slug={product.slug} pdfPath={product.pdf_path} />
             </div>
           </div>
 
