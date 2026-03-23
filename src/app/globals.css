@@ -1,0 +1,102 @@
+/* E:\guide-digitali\src\app\globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #050510;
+  color: #e5e7eb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar personalizzata */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #050510;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a3042;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a4055;
+}
+
+/* Griglia di sfondo cyberpunk */
+.cyber-grid {
+  background-image:
+    linear-gradient(rgba(6, 182, 212, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* Glow neon per categoria */
+.neon-glow-cyan { box-shadow: 0 0 30px rgba(6, 182, 212, 0.3); }
+.neon-glow-violet { box-shadow: 0 0 30px rgba(139, 92, 246, 0.3); }
+.neon-glow-amber { box-shadow: 0 0 30px rgba(245, 158, 11, 0.3); }
+.neon-glow-rose { box-shadow: 0 0 30px rgba(244, 63, 94, 0.3); }
+
+/* Bordo animato gradient */
+.cyber-border {
+  position: relative;
+  overflow: hidden;
+}
+.cyber-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(45deg, #06b6d4, #8b5cf6, #f43f5e, #06b6d4);
+  background-size: 400% 400%;
+  animation: borderRotate 4s ease infinite;
+  border-radius: inherit;
+  z-index: -1;
+}
+.cyber-border::after {
+  content: '';
+  position: absolute;
+  inset: 1px;
+  background: #0a0a1a;
+  border-radius: inherit;
+  z-index: -1;
+}
+
+@keyframes borderRotate {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Animazione neon pulse */
+@keyframes neonPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+.neon-pulse {
+  animation: neonPulse 2s ease-in-out infinite;
+}
+
+/* Scanline overlay */
+.scanline-overlay {
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+}
