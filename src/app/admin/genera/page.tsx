@@ -148,6 +148,56 @@ export default function GeneraGuidePage() {
     }
   }
 
+  // Apre l'HTML generato in una nuova finestra per stampare/salvare come PDF
+  function handleSavePdf() {
+    if (!result) return;
+    // Genera HTML completo con sfondo bianco per stampa
+    const c = CATEGORIES[category].color;
+    const imgMap: Record<string, string> = {};
+    result.images?.forEach(img => { imgMap[img.chapter] = img.url; });
+
+    const lines = editedMarkdown.split('\n');
+    let bodyHtml = '';
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t) { bodyHtml += '<div style="height:8px;"></div>'; continue; }
+      if (t.startsWith('### ')) bodyHtml += `<h3 style="color:#475569;font-size:15px;font-weight:700;margin:20px 0 8px;">${t.slice(4)}</h3>`;
+      else if (t.startsWith('## ')) {
+        const heading = t.slice(3);
+        bodyHtml += `<h2 style="color:${c};font-size:20px;font-weight:800;margin:32px 0 10px;padding-bottom:6px;border-bottom:2px solid ${c}25;">${heading}</h2>`;
+        if (imgMap[heading]) bodyHtml += `<div style="margin:12px 0 20px;text-align:center;"><img src="${imgMap[heading]}" style="max-width:100%;max-height:260px;border-radius:8px;"></div>`;
+      }
+      else if (t.startsWith('# ')) bodyHtml += `<h1 style="color:#0f172a;font-size:28px;font-weight:800;margin:36px 0 14px;">${t.slice(2)}</h1>`;
+      else if (t.startsWith('> ')) bodyHtml += `<div style="border-left:3px solid ${c};background:${c}08;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;"><span style="color:#334155;font-size:12px;">${t.slice(2)}</span></div>`;
+      else if (t.startsWith('- ') || t.startsWith('* ')) bodyHtml += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;">&#8226;</span><span style="color:#334155;font-size:12px;line-height:1.65;">${t.slice(2)}</span></div>`;
+      else if (/^\d+\. /.test(t)) { const txt = t.replace(/^\d+\.\s/, ''); const num = t.match(/^(\d+)\./)?.[1]; bodyHtml += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;font-weight:700;min-width:18px;">${num}.</span><span style="color:#334155;font-size:12px;line-height:1.65;">${txt}</span></div>`; }
+      else if (t === '---') bodyHtml += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:24px auto;width:50%;">';
+      else bodyHtml += `<p style="color:#334155;font-size:12px;line-height:1.8;margin:6px 0;text-align:justify;">${t.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#0f172a;">$1</strong>').replace(/\*(.+?)\*/g, '<em>$1</em>')}</p>`;
+    }
+
+    const fullHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+<style>@page{size:A4;margin:20mm 18mm;}body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#334155;margin:0;padding:24px 32px;}
+@media print{body{padding:0;}}</style></head><body>
+<div style="text-align:center;padding:60px 0 40px;">
+<span style="background:${c};color:#fff;padding:6px 20px;border-radius:20px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;">${CATEGORIES[category].label}</span>
+<h1 style="font-size:34px;font-weight:800;color:#0f172a;margin:24px 0 12px;line-height:1.2;">${title}</h1>
+<div style="width:60px;height:3px;background:${c};margin:16px auto;"></div>
+<p style="color:#64748b;font-size:13px;">GuideDigitali — guidedigitali.vercel.app</p>
+</div><hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0 30px;">
+${bodyHtml}
+<div style="text-align:center;margin-top:60px;padding-top:20px;border-top:1px solid #e2e8f0;">
+<p style="color:${c};font-weight:700;font-size:14px;">GuideDigitali</p>
+<p style="color:#94a3b8;font-size:11px;">guidedigitali.vercel.app</p>
+</div></body></html>`;
+
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(fullHtml);
+      w.document.close();
+      setTimeout(() => w.print(), 500);
+    }
+  }
+
   function autoSlug(t: string) {
     return t
       .toLowerCase()
@@ -359,6 +409,10 @@ export default function GeneraGuidePage() {
             <button onClick={handleGenerate}
               className="px-4 py-2 rounded-lg text-sm font-semibold transition" style={{ backgroundColor: cat.color + '20', color: cat.color }}>
               Rigenera
+            </button>
+            <button onClick={handleSavePdf}
+              className="px-4 py-2 bg-[#1a1a2e] border border-[#2a2a3e] rounded-lg text-sm text-white hover:bg-[#2a2a3e] transition">
+              Salva PDF
             </button>
             <button onClick={handlePublish} disabled={step === 'publishing'}
               className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-500 transition disabled:opacity-50">

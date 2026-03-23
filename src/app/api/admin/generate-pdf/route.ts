@@ -108,24 +108,24 @@ function generateHTML(
     switch (section.type) {
       case 'heading':
         if (section.level === 1) {
-          bodyHtml += `<h1 style="color: #f1f5f9; font-size: 28px; font-weight: bold; margin: 40px 0 16px; page-break-after: avoid;">${section.content}</h1>`;
+          bodyHtml += `<h1 style="color: #0f172a; font-size: 28px; font-weight: 800; margin: 40px 0 16px; page-break-after: avoid;">${section.content}</h1>`;
         } else if (section.level === 2) {
-          bodyHtml += `<h2 style="color: ${colors.primary}; font-size: 22px; font-weight: bold; margin: 32px 0 12px; page-break-after: avoid;">${section.content}</h2>`;
+          bodyHtml += `<h2 style="color: ${colors.primary}; font-size: 22px; font-weight: 800; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 2px solid ${colors.primary}25; page-break-after: avoid;">${section.content}</h2>`;
         } else {
-          bodyHtml += `<h3 style="color: #94a3b8; font-size: 16px; font-weight: bold; margin: 20px 0 8px;">${section.content}</h3>`;
+          bodyHtml += `<h3 style="color: #475569; font-size: 15px; font-weight: 700; margin: 20px 0 8px;">${section.content}</h3>`;
         }
         break;
       case 'paragraph':
-        bodyHtml += `<p style="color: #cbd5e1; font-size: 11px; line-height: 1.7; margin: 8px 0; text-align: justify;">${section.content.replace(/\*\*(.+?)\*\*/g, `<strong style="color: #f1f5f9;">$1</strong>`).replace(/\*(.+?)\*/g, '<em>$1</em>')}</p>`;
+        bodyHtml += `<p style="color: #334155; font-size: 11.5px; line-height: 1.75; margin: 8px 0; text-align: justify;">${section.content.replace(/\*\*(.+?)\*\*/g, '<strong style="color: #0f172a;">$1</strong>').replace(/\*(.+?)\*/g, '<em style="color: #475569;">$1</em>')}</p>`;
         break;
       case 'list-item':
-        bodyHtml += `<div style="display: flex; align-items: flex-start; margin: 4px 0 4px 16px;"><span style="color: ${colors.primary}; margin-right: 8px; font-size: 14px;">&#8226;</span><span style="color: #cbd5e1; font-size: 11px; line-height: 1.6;">${section.content}</span></div>`;
+        bodyHtml += `<div style="display: flex; align-items: flex-start; margin: 5px 0 5px 16px;"><span style="color: ${colors.primary}; margin-right: 10px; font-size: 14px;">&#8226;</span><span style="color: #334155; font-size: 11.5px; line-height: 1.65;">${section.content}</span></div>`;
         break;
       case 'numbered-item':
-        bodyHtml += `<div style="display: flex; align-items: flex-start; margin: 4px 0 4px 16px;"><span style="color: ${colors.primary}; margin-right: 8px; font-size: 11px; font-weight: bold; min-width: 16px;">&#9679;</span><span style="color: #cbd5e1; font-size: 11px; line-height: 1.6;">${section.content}</span></div>`;
+        bodyHtml += `<div style="display: flex; align-items: flex-start; margin: 5px 0 5px 16px;"><span style="color: ${colors.primary}; margin-right: 10px; font-size: 11.5px; font-weight: 700; min-width: 18px;">&#9679;</span><span style="color: #334155; font-size: 11.5px; line-height: 1.65;">${section.content}</span></div>`;
         break;
       case 'divider':
-        bodyHtml += `<hr style="border: none; border-top: 1px solid #334155; margin: 24px auto; width: 60%;">`;
+        bodyHtml += `<hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px auto; width: 50%;">`;
         break;
     }
   }
@@ -133,9 +133,9 @@ function generateHTML(
   // Sommario HTML
   let tocHtml = '';
   tocItems.forEach((item, i) => {
-    tocHtml += `<div style="padding: 6px 0; border-bottom: 1px solid #1e293b;">
-      <span style="color: ${colors.primary}; font-weight: bold; margin-right: 12px;">${String(i + 1).padStart(2, '0')}</span>
-      <span style="color: #cbd5e1; font-size: 12px;">${item}</span>
+    tocHtml += `<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted #e2e8f0;">
+      <span><span style="color: ${colors.primary}; font-weight: 700; margin-right: 12px;">${String(i + 1).padStart(2, '0')}</span><span style="color: #334155; font-size: 12px;">${item}</span></span>
+      <span style="color: #94a3b8; font-size: 11px;">${i + 3}</span>
     </div>`;
   });
 
