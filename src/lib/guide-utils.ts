@@ -44,20 +44,20 @@ export const CATEGORY_CONFIG: Record<GuideCategory, {
     gradientTo: 'to-amber-700',
     textColor: 'text-amber-400',
   },
-  branding: {
-    label: 'Personal Branding',
-    color: 'rose',
-    bgColor: 'bg-rose-500/10',
-    borderColor: 'border-rose-500/30',
-    glowColor: 'rgba(244, 63, 94, 0.4)',
-    gradientFrom: 'from-rose-500',
-    gradientTo: 'to-rose-700',
-    textColor: 'text-rose-400',
+  biohacking: {
+    label: 'Alta Performance & Biohacking',
+    color: 'emerald',
+    bgColor: 'bg-emerald-500/10',
+    borderColor: 'border-emerald-500/30',
+    glowColor: 'rgba(16, 185, 129, 0.4)',
+    gradientFrom: 'from-emerald-500',
+    gradientTo: 'to-emerald-700',
+    textColor: 'text-emerald-400',
   },
 };
 
 // Tutte le categorie in ordine
-export const ALL_CATEGORIES: GuideCategory[] = ['fitness', 'business', 'mindset', 'branding'];
+export const ALL_CATEGORIES: GuideCategory[] = ['fitness', 'business', 'mindset', 'biohacking'];
 
 // Calcola prezzo bundle (-20% per 2+ guide)
 export function calculateBundleDiscount(itemCount: number, subtotal: number): number {
