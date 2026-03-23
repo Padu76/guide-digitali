@@ -76,6 +76,22 @@ export default function GuideDetailPage() {
     );
   }
 
+  function renderDescription(text: string): string {
+    // Prendi solo i primi 800 caratteri per la descrizione, pulisci markdown
+    const clean = text.slice(0, 800)
+      .replace(/^#{1,4}\s+.+$/gm, '') // rimuovi heading markdown
+      .replace(/\*\*(.+?)\*\*/g, '<strong class="text-white">$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/^>\s+(.+)$/gm, '<span class="text-cyan-400">$1</span>')
+      .replace(/^[-*]\s+(.+)$/gm, '<span class="block ml-2">&#8226; $1</span>')
+      .replace(/\n\n+/g, '<br><br>')
+      .replace(/\n/g, '<br>')
+      .trim();
+    // Tronca alla fine di una frase
+    const lastDot = clean.lastIndexOf('.');
+    return lastDot > 200 ? clean.slice(0, lastDot + 1) : clean;
+  }
+
   const config = CATEGORY_CONFIG[product.category];
   const isInCart = items.some(item => item.product.id === product.id);
   const features: string[] = Array.isArray(product.features) ? product.features : [];
@@ -146,9 +162,8 @@ export default function GuideDetailPage() {
             </div>
 
             <div className="prose prose-invert prose-sm max-w-none mb-8">
-              <p className="text-gray-300 leading-relaxed whitespace-pre-line">
-                {product.description}
-              </p>
+              <div className="text-gray-300 leading-relaxed"
+                dangerouslySetInnerHTML={{ __html: renderDescription(product.description) }} />
             </div>
 
             {features.length > 0 && (
