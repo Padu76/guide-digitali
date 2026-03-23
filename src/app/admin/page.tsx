@@ -118,6 +118,22 @@ export default function GuideAdminPage() {
     }
   }
 
+  async function handlePrintGuide(pdfPath: string) {
+    try {
+      const res = await fetch(pdfPath);
+      if (!res.ok) { alert('Errore caricamento guida'); return; }
+      const html = await res.text();
+      const w = window.open('', '_blank');
+      if (w) {
+        w.document.write(html);
+        w.document.close();
+        setTimeout(() => w.print(), 500);
+      }
+    } catch {
+      alert('Errore apertura guida');
+    }
+  }
+
   async function handleExport() {
     window.open('/api/admin/export', '_blank');
   }
@@ -161,11 +177,7 @@ export default function GuideAdminPage() {
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-600 to-violet-600 text-sm text-white font-semibold hover:opacity-90 transition-all">
               + Nuova Guida
             </a>
-            <button onClick={handleExport}
-              className="px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-all">
-              Export CSV
-            </button>
-            <a href="/" className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-300 transition-colors">
+<a href="/" className="px-4 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-300 transition-colors">
               Store
             </a>
           </div>
@@ -245,9 +257,21 @@ export default function GuideAdminPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {guide.pdf_path && (
+                        <a href={guide.pdf_path} target="_blank"
+                          className="px-3 py-1.5 rounded-lg bg-cyan-900/20 text-xs text-cyan-400 hover:bg-cyan-900/40 transition">
+                          Anteprima
+                        </a>
+                      )}
+                      {guide.pdf_path && (
+                        <button onClick={() => handlePrintGuide(guide.pdf_path)}
+                          className="px-3 py-1.5 rounded-lg bg-violet-900/20 text-xs text-violet-400 hover:bg-violet-900/40 transition">
+                          Salva PDF
+                        </button>
+                      )}
                       <a href={`/${guide.slug}`} target="_blank"
                         className="px-3 py-1.5 rounded-lg bg-white/5 text-xs text-gray-400 hover:text-white transition">
-                        Vedi
+                        Store
                       </a>
                       <button onClick={() => toggleGuide(guide.id, !guide.active)}
                         className={`px-3 py-1.5 rounded-lg text-xs transition ${guide.active ? 'bg-amber-900/20 text-amber-400 hover:bg-amber-900/40' : 'bg-green-900/20 text-green-400 hover:bg-green-900/40'}`}>
