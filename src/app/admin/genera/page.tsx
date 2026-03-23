@@ -155,26 +155,59 @@ export default function GeneraGuidePage() {
   function formatInline(text: string): string {
     const c = CATEGORIES[category].color;
     return text
-      .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #0f172a;">$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, `<code style="background:#f1f5f9;padding:2px 6px;border-radius:3px;font-size:10px;color:${c};">$1</code>`);
+      .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#0f172a;font-weight:700;">$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em style="color:#475569;">$1</em>')
+      .replace(/`(.+?)`/g, `<code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:11px;color:${c};font-weight:600;">$1</code>`);
+  }
+
+  // Mappa capitolo -> immagine URL
+  function getImageMap(): Record<string, string> {
+    const map: Record<string, string> = {};
+    if (result?.images) {
+      result.images.forEach(img => { map[img.chapter] = img.url; });
+    }
+    return map;
   }
 
   function markdownToHtml(md: string): string {
     const c = CATEGORIES[category].color;
+    const imgMap = getImageMap();
     const lines = md.split('\n');
     let html = '';
+    let chapterCount = 0;
+
     for (const line of lines) {
       const t = line.trim();
       if (!t) { html += '<div style="height:10px;"></div>'; continue; }
-      if (t.startsWith('### ')) html += `<h3 style="color:#475569;font-size:15px;font-weight:700;margin:18px 0 6px;">${t.slice(4)}</h3>`;
-      else if (t.startsWith('## ')) html += `<h2 style="color:${c};font-size:20px;font-weight:800;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid ${c}30;">${t.slice(3)}</h2>`;
-      else if (t.startsWith('# ')) html += `<h1 style="color:#f1f5f9;font-size:26px;font-weight:800;margin:32px 0 14px;">${t.slice(2)}</h1>`;
-      else if (t.startsWith('> ')) html += `<div style="border-left:3px solid ${c};background:${c}15;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;"><span style="color:#e2e8f0;font-size:13px;line-height:1.6;">${formatInline(t.slice(2))}</span></div>`;
-      else if (t.startsWith('- ') || t.startsWith('* ')) html += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;">&#8226;</span><span style="color:#cbd5e1;font-size:13px;line-height:1.6;">${formatInline(t.slice(2))}</span></div>`;
-      else if (/^\d+\. /.test(t)) { const txt = t.replace(/^\d+\.\s/, ''); html += `<div style="margin:4px 0 4px 12px;color:#cbd5e1;font-size:13px;line-height:1.6;">${formatInline(txt)}</div>`; }
-      else if (t === '---') html += '<hr style="border:none;border-top:1px solid #334155;margin:20px auto;width:50%;">';
-      else html += `<p style="color:#cbd5e1;font-size:13px;line-height:1.8;margin:5px 0;">${formatInline(t)}</p>`;
+
+      if (t.startsWith('### ')) {
+        html += `<h3 style="color:#475569;font-size:15px;font-weight:700;margin:18px 0 6px;">${t.slice(4)}</h3>`;
+      } else if (t.startsWith('## ')) {
+        const heading = t.slice(3);
+        chapterCount++;
+        // Separatore visivo tra capitoli
+        if (chapterCount > 1) html += '<div style="height:24px;border-top:1px solid #e2e8f0;margin:32px 0 0;"></div>';
+        html += `<h2 style="color:${c};font-size:20px;font-weight:800;margin:16px 0 10px;padding-bottom:6px;border-bottom:2px solid ${c}30;">${heading}</h2>`;
+        // Inserisci immagine del capitolo se disponibile
+        const imgUrl = imgMap[heading];
+        if (imgUrl) {
+          html += `<div style="margin:12px 0 20px;text-align:center;"><img src="${imgUrl}" style="max-width:100%;height:auto;max-height:280px;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,0.08);" alt="${heading}"></div>`;
+        }
+      } else if (t.startsWith('# ')) {
+        html += `<h1 style="color:#0f172a;font-size:28px;font-weight:800;margin:32px 0 14px;">${t.slice(2)}</h1>`;
+      } else if (t.startsWith('> ')) {
+        html += `<div style="border-left:3px solid ${c};background:${c}08;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;"><span style="color:#334155;font-size:13px;line-height:1.6;">${formatInline(t.slice(2))}</span></div>`;
+      } else if (t.startsWith('- ') || t.startsWith('* ')) {
+        html += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;">&#8226;</span><span style="color:#334155;font-size:13px;line-height:1.6;">${formatInline(t.slice(2))}</span></div>`;
+      } else if (/^\d+\. /.test(t)) {
+        const num = t.match(/^(\d+)\./)?.[1] || '1';
+        const txt = t.replace(/^\d+\.\s/, '');
+        html += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;font-weight:700;min-width:20px;">${num}.</span><span style="color:#334155;font-size:13px;line-height:1.6;">${formatInline(txt)}</span></div>`;
+      } else if (t === '---') {
+        html += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:20px auto;width:50%;">';
+      } else {
+        html += `<p style="color:#334155;font-size:13px;line-height:1.8;margin:5px 0;">${formatInline(t)}</p>`;
+      }
     }
     return html;
   }
@@ -353,7 +386,8 @@ export default function GeneraGuidePage() {
 
             <div className="flex-1 relative">
               {tab === 'preview' && (
-                <div className="absolute inset-0 overflow-y-auto px-8 py-6 bg-[#0d1117]"
+                <div className="absolute inset-0 overflow-y-auto px-10 py-8 bg-white"
+                  style={{ fontFamily: "'Segoe UI', -apple-system, Arial, sans-serif" }}
                   dangerouslySetInnerHTML={{ __html: markdownToHtml(editedMarkdown) }} />
               )}
 
