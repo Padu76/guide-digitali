@@ -1,345 +1,182 @@
 // E:\guide-digitali\src\app\admin\genera\page.tsx
-// Generatore Guide PDF — admin panel
-// Editor markdown → preview PDF-like → genera → modifica → rigenera → pubblica
+// Generatore Guide AI — prompt semplice → guida completa con immagini
 
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { GuideCategory } from '@/lib/guide-types';
 
-const TEMPLATES: Record<GuideCategory, { label: string; color: string }> = {
-  fitness: { label: 'Fitness & Allenamento', color: '#06b6d4' },
-  business: { label: 'AI & Automazione', color: '#8b5cf6' },
-  mindset: { label: 'Mindset & Produttivita', color: '#f59e0b' },
-  biohacking: { label: 'Benessere & Performance', color: '#ec4899' },
+const CATEGORIES: Record<GuideCategory, { label: string; color: string; placeholder: string }> = {
+  fitness: {
+    label: 'Fitness & Allenamento',
+    color: '#06b6d4',
+    placeholder: 'Es: Programma corpo libero 4 settimane, focus su forza e resistenza, con schede giornaliere',
+  },
+  business: {
+    label: 'AI & Automazione',
+    color: '#8b5cf6',
+    placeholder: 'Es: 50 prompt ChatGPT per freelancer, divisi per area (marketing, vendite, contenuti)',
+  },
+  mindset: {
+    label: 'Mindset & Produttivita',
+    color: '#f59e0b',
+    placeholder: 'Es: Sistema di morning routine in 21 giorni, con checklist giornaliere e tracking',
+  },
+  biohacking: {
+    label: 'Benessere & Performance',
+    color: '#ec4899',
+    placeholder: 'Es: Protocollo sonno ottimale, con tecniche, integratori e tracking settimanale',
+  },
 };
 
-interface GuideFormData {
-  title: string;
-  slug: string;
-  category: GuideCategory;
-  description: string;
-  short_description: string;
-  price: number;
-  page_count: number;
-  features: string;
-  markdown_content: string;
+interface GenerationResult {
+  markdown: string;
+  images: Array<{ chapter: string; url: string }>;
+  stats: { wordCount: number; estimatedPages: number; chapters: number; imagesGenerated: number };
 }
-
-const DEFAULT_MARKDOWN = `# Titolo della Guida
-
-## Introduzione
-
-Scrivi qui l'introduzione della guida. Questa sezione serve a catturare l'attenzione del lettore e spiegare cosa trovera nelle prossime pagine.
-
-## Capitolo 1: Primo Argomento
-
-Contenuto del primo capitolo. Usa **grassetto** per evidenziare concetti chiave e *corsivo* per enfasi.
-
-### Sottosezione 1.1
-
-- Punto elenco uno
-- Punto elenco due
-- Punto elenco tre
-
-### Sottosezione 1.2
-
-1. Primo passo
-2. Secondo passo
-3. Terzo passo
-
-## Capitolo 2: Secondo Argomento
-
-Contenuto del secondo capitolo...
-
-> Questo e un box di citazione o nota importante.
-
----
-
-## Conclusioni
-
-Riepilogo e prossimi passi per il lettore.
-`;
-
-const DEFAULT_FORM: GuideFormData = {
-  title: '',
-  slug: '',
-  category: 'fitness',
-  description: '',
-  short_description: '',
-  price: 9.00,
-  page_count: 35,
-  features: '',
-  markdown_content: DEFAULT_MARKDOWN,
-};
 
 export default function GeneraGuidePage() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [form, setForm] = useState<GuideFormData>(DEFAULT_FORM);
-  const [generating, setGenerating] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string; pdfUrl?: string; htmlUrl?: string } | null>(null);
-  const [tab, setTab] = useState<'edit' | 'preview' | 'pdf-preview'>('edit');
-  const [generatedHtml, setGeneratedHtml] = useState<string>('');
-  const [editingGenerated, setEditingGenerated] = useState(false);
-  const [versions, setVersions] = useState<Array<{ timestamp: string; title: string; url?: string }>>([]);
-  const previewRef = useRef<HTMLIFrameElement>(null);
+
+  // Form semplice
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState<GuideCategory>('fitness');
+  const [prompt, setPrompt] = useState('');
+  const [chapters, setChapters] = useState(8);
+  const [generateImages, setGenerateImages] = useState(true);
+  const [imageProvider, setImageProvider] = useState<'dalle' | 'leonardo'>('dalle');
+
+  // Stato generazione
+  const [step, setStep] = useState<'input' | 'generating' | 'review' | 'publishing'>('input');
+  const [progress, setProgress] = useState('');
+  const [result, setResult] = useState<GenerationResult | null>(null);
+  const [editedMarkdown, setEditedMarkdown] = useState('');
+  const [tab, setTab] = useState<'preview' | 'edit' | 'images'>('preview');
+  const [error, setError] = useState('');
+  const [publishResult, setPublishResult] = useState('');
+
+  // Metadata per pubblicazione
+  const [price, setPrice] = useState(9);
+  const [shortDesc, setShortDesc] = useState('');
 
   useEffect(() => {
-    if (document.cookie.includes('guide_admin_auth=authenticated')) {
-      setAuthed(true);
-    }
+    if (document.cookie.includes('guide_admin_auth=authenticated')) setAuthed(true);
   }, []);
 
-  // Salva/carica bozza da localStorage
-  useEffect(() => {
-    if (authed) {
-      const saved = localStorage.getItem('guide_draft');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-          setForm(parsed);
-        } catch {}
-      }
-    }
-  }, [authed]);
-
-  useEffect(() => {
-    if (authed && form.title) {
-      const timer = setTimeout(() => {
-        localStorage.setItem('guide_draft', JSON.stringify(form));
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [form, authed]);
-
   async function handleLogin() {
-    try {
-      const res = await fetch('/api/admin/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password }),
-      });
-      if (res.ok) { setAuthed(true); setLoginError(''); }
-      else { setLoginError('Password non corretta'); }
-    } catch { setLoginError('Errore di connessione'); }
-  }
-
-  function autoSlug(title: string) {
-    return title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
-  }
-
-  function updateField(field: keyof GuideFormData, value: string | number) {
-    setForm(prev => {
-      const updated = { ...prev, [field]: value };
-      if (field === 'title') updated.slug = autoSlug(value as string);
-      return updated;
+    const res = await fetch('/api/admin/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password }),
     });
-    // Reset generazione se si modifica il contenuto
-    if (field === 'markdown_content' || field === 'title' || field === 'category') {
-      setResult(null);
-      setGeneratedHtml('');
-    }
-  }
-
-  function clearDraft() {
-    localStorage.removeItem('guide_draft');
-    setForm(DEFAULT_FORM);
-    setResult(null);
-    setGeneratedHtml('');
-    setVersions([]);
-  }
-
-  // Genera HTML completo per preview PDF-like (lato client)
-  function generatePreviewHtml(): string {
-    const colors = TEMPLATES[form.category];
-    const md = form.markdown_content;
-
-    // Parse markdown
-    const lines = md.split('\n');
-    let bodyHtml = '';
-    const tocItems: string[] = [];
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) { bodyHtml += '<div style="height: 8px;"></div>'; continue; }
-
-      if (line.startsWith('### ')) {
-        const text = line.replace('### ', '');
-        bodyHtml += `<h3 style="color: #475569; font-size: 14px; font-weight: 700; margin: 20px 0 8px; letter-spacing: 0.3px;">${text}</h3>`;
-      } else if (line.startsWith('## ')) {
-        const text = line.replace('## ', '');
-        tocItems.push(text);
-        bodyHtml += `<div style="page-break-before: auto; margin-top: 36px;"></div>`;
-        bodyHtml += `<h2 style="color: ${colors.color}; font-size: 20px; font-weight: 800; margin: 0 0 12px; padding-bottom: 8px; border-bottom: 2px solid ${colors.color}20;">${text}</h2>`;
-      } else if (line.startsWith('# ')) {
-        const text = line.replace('# ', '');
-        bodyHtml += `<h1 style="color: #0f172a; font-size: 28px; font-weight: 800; margin: 40px 0 16px; line-height: 1.2;">${text}</h1>`;
-      } else if (line.startsWith('- ') || line.startsWith('* ')) {
-        const text = line.replace(/^[-*] /, '');
-        bodyHtml += `<div style="display: flex; align-items: flex-start; margin: 6px 0 6px 12px;"><span style="color: ${colors.color}; margin-right: 10px; font-size: 18px; line-height: 1;">&#8226;</span><span style="color: #334155; font-size: 11px; line-height: 1.7;">${formatInline(text)}</span></div>`;
-      } else if (/^\d+\. /.test(line)) {
-        const num = line.match(/^(\d+)\./)?.[1] || '1';
-        const text = line.replace(/^\d+\. /, '');
-        bodyHtml += `<div style="display: flex; align-items: flex-start; margin: 6px 0 6px 12px;"><span style="color: ${colors.color}; margin-right: 10px; font-size: 11px; font-weight: 700; min-width: 20px;">${num}.</span><span style="color: #334155; font-size: 11px; line-height: 1.7;">${formatInline(text)}</span></div>`;
-      } else if (line.startsWith('> ')) {
-        const text = line.replace('> ', '');
-        bodyHtml += `<div style="border-left: 3px solid ${colors.color}; background: ${colors.color}08; padding: 12px 16px; margin: 12px 0; border-radius: 0 6px 6px 0;"><p style="color: #475569; font-size: 11px; line-height: 1.7; margin: 0; font-style: italic;">${formatInline(text)}</p></div>`;
-      } else if (line === '---') {
-        bodyHtml += `<hr style="border: none; border-top: 1px solid #e2e8f0; margin: 28px auto; width: 50%;">`;
-      } else {
-        bodyHtml += `<p style="color: #334155; font-size: 11px; line-height: 1.8; margin: 6px 0; text-align: justify;">${formatInline(line)}</p>`;
-      }
-    }
-
-    // Sommario
-    let tocHtml = '';
-    tocItems.forEach((item, i) => {
-      tocHtml += `<div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted #e2e8f0;">
-        <span style="color: #334155; font-size: 12px;"><span style="color: ${colors.color}; font-weight: 700; margin-right: 12px;">${String(i + 1).padStart(2, '0')}</span>${item}</span>
-        <span style="color: #94a3b8; font-size: 11px;">${i + 3}</span>
-      </div>`;
-    });
-
-    return `<!DOCTYPE html>
-<html><head><meta charset="UTF-8">
-<style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Segoe UI', -apple-system, Arial, sans-serif; background: #f1f5f9; }
-  .page { width: 210mm; min-height: 297mm; margin: 16px auto; background: white; box-shadow: 0 2px 16px rgba(0,0,0,0.12); padding: 28mm 22mm; position: relative; }
-  .page-number { position: absolute; bottom: 14mm; right: 22mm; color: #94a3b8; font-size: 10px; }
-  .brand { position: absolute; bottom: 14mm; left: 22mm; color: ${colors.color}; font-size: 9px; font-weight: 600; }
-  @media print { .page { box-shadow: none; margin: 0; page-break-after: always; } body { background: white; } }
-</style>
-</head><body>
-
-<!-- COPERTINA -->
-<div class="page" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-  <div style="margin-bottom: 20px;">
-    <span style="background: ${colors.color}; color: white; padding: 6px 20px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;">${TEMPLATES[form.category].label}</span>
-  </div>
-  <h1 style="font-size: 38px; font-weight: 800; color: #0f172a; margin: 20px 0; line-height: 1.15; max-width: 500px;">${form.title || 'Titolo della Guida'}</h1>
-  <div style="width: 60px; height: 3px; background: ${colors.color}; margin: 20px auto;"></div>
-  <p style="color: #64748b; font-size: 13px; max-width: 380px; line-height: 1.6;">${form.short_description || 'Guida pratica e completa. Scaricabile e stampabile.'}</p>
-  <div style="margin-top: 80px; color: #94a3b8; font-size: 10px;">
-    <span style="color: ${colors.color}; font-weight: 700;">GuideDigitali</span> — guidedigitali.vercel.app
-  </div>
-</div>
-
-<!-- SOMMARIO -->
-<div class="page">
-  <h2 style="color: #0f172a; font-size: 24px; font-weight: 800; margin-bottom: 28px;">Sommario</h2>
-  ${tocHtml}
-  <div class="page-number">2</div>
-  <div class="brand">GuideDigitali</div>
-</div>
-
-<!-- CONTENUTO -->
-<div class="page">
-  ${bodyHtml}
-  <div class="brand">GuideDigitali</div>
-</div>
-
-<!-- ULTIMA PAGINA -->
-<div class="page" style="display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
-  <div style="width: 60px; height: 3px; background: ${colors.color}; margin-bottom: 24px;"></div>
-  <p style="color: ${colors.color}; font-weight: 700; font-size: 16px;">GuideDigitali</p>
-  <p style="color: #64748b; font-size: 12px; margin-top: 8px;">guidedigitali.vercel.app</p>
-  <p style="color: #94a3b8; font-size: 11px; margin-top: 20px; max-width: 300px; line-height: 1.6;">Scopri tutte le guide su fitness, business, mindset e biohacking.</p>
-</div>
-
-</body></html>`;
-  }
-
-  function formatInline(text: string): string {
-    return text
-      .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #0f172a;">$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, `<code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px; font-size: 10px; color: ${TEMPLATES[form.category].color};">$1</code>`);
-  }
-
-  // Genera markdown → preview semplice (tab Preview)
-  function markdownToPreviewHtml(md: string): string {
-    const colors = TEMPLATES[form.category];
-    return md
-      .replace(/^### (.+)$/gm, `<h3 style="color: #94a3b8; font-size: 15px; font-weight: 700; margin: 16px 0 8px;">$1</h3>`)
-      .replace(/^## (.+)$/gm, `<h2 style="color: ${colors.color}; font-size: 19px; font-weight: 700; margin: 24px 0 12px; padding-bottom: 6px; border-bottom: 2px solid ${colors.color}30;">$1</h2>`)
-      .replace(/^# (.+)$/gm, '<h1 style="color: #f1f5f9; font-size: 26px; font-weight: 800; margin: 32px 0 16px;">$1</h1>')
-      .replace(/^> (.+)$/gm, `<div style="border-left: 3px solid ${colors.color}; padding: 8px 14px; margin: 8px 0; background: ${colors.color}10; border-radius: 0 6px 6px 0;"><span style="color: #cbd5e1; font-size: 13px;">$1</span></div>`)
-      .replace(/^- (.+)$/gm, `<div style="display: flex; margin: 3px 0 3px 8px;"><span style="color: ${colors.color}; margin-right: 8px;">&#8226;</span><span style="color: #cbd5e1; font-size: 13px;">$1</span></div>`)
-      .replace(/^\d+\. (.+)$/gm, `<div style="margin: 3px 0 3px 8px; color: #cbd5e1; font-size: 13px;">$1</div>`)
-      .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #f1f5f9;">$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/`(.+?)`/g, `<code style="background: #1e293b; padding: 2px 6px; border-radius: 3px; font-size: 12px; color: ${colors.color};">$1</code>`)
-      .replace(/^---$/gm, '<hr style="border-color: #334155; margin: 20px 0;">')
-      .replace(/\n\n/g, '<div style="height: 12px;"></div>')
-      .replace(/\n/g, '<br>');
+    if (res.ok) { setAuthed(true); setLoginError(''); }
+    else setLoginError('Password non corretta');
   }
 
   async function handleGenerate() {
-    if (!form.title || !form.markdown_content) {
-      setResult({ success: false, message: 'Inserisci titolo e contenuto' });
-      return;
-    }
-
-    setGenerating(true);
-    setResult(null);
+    if (!title) { setError('Inserisci un titolo'); return; }
+    setStep('generating');
+    setError('');
+    setProgress('Generazione contenuto con GPT-4o...');
 
     try {
-      const res = await fetch('/api/admin/generate-pdf', {
+      const res = await fetch('/api/admin/generate-guide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: form.title,
-          slug: form.slug,
-          category: form.category,
-          markdown: form.markdown_content,
-        }),
+        body: JSON.stringify({ title, category, prompt, chapters, generateImages }),
       });
 
       const data = await res.json();
-      if (res.ok) {
-        const html = generatePreviewHtml();
-        setGeneratedHtml(html);
-        setTab('pdf-preview');
-        setVersions(prev => [...prev, { timestamp: new Date().toLocaleTimeString(), title: form.title, url: data.pdfUrl }]);
-        setResult({ success: true, message: `Generato v${versions.length + 1} — Controlla l'anteprima, modifica e rigenera se necessario.`, pdfUrl: data.pdfUrl, htmlUrl: data.htmlUrl });
-      } else {
-        setResult({ success: false, message: data.error || 'Errore generazione' });
-      }
-    } catch {
-      setResult({ success: false, message: 'Errore di connessione' });
-    } finally {
-      setGenerating(false);
+      if (!res.ok) throw new Error(data.error || 'Errore generazione');
+
+      setResult(data);
+      setEditedMarkdown(data.markdown);
+      setStep('review');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Errore');
+      setStep('input');
     }
   }
 
+  async function handleRegenerate() {
+    setStep('input');
+    setResult(null);
+    setEditedMarkdown('');
+    setPublishResult('');
+  }
+
   async function handlePublish() {
-    if (!result?.pdfUrl) return;
-    setPublishing(true);
+    if (!result) return;
+    setStep('publishing');
+    setPublishResult('');
+
     try {
-      const res = await fetch('/api/admin/publish-guide', {
+      // 1. Carica HTML su Supabase
+      const genRes = await fetch('/api/admin/generate-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, slug: autoSlug(title), category, markdown: editedMarkdown }),
+      });
+      const genData = await genRes.json();
+      if (!genRes.ok) throw new Error(genData.error);
+
+      // 2. Pubblica su store
+      const pubRes = await fetch('/api/admin/publish-guide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
-          features: form.features.split('\n').filter(f => f.trim()),
-          pdf_url: result.pdfUrl,
+          title,
+          slug: autoSlug(title),
+          category,
+          description: editedMarkdown.slice(0, 500),
+          short_description: shortDesc || `Guida completa: ${title}`,
+          price,
+          page_count: result.stats.estimatedPages,
+          features: [`${result.stats.estimatedPages}+ pagine`, `${result.stats.chapters} capitoli`, 'Stampabile', 'Download immediato'],
+          pdf_url: genData.pdfUrl,
         }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        setResult({ ...result, success: true, message: `Guida pubblicata sullo store! Vai a /guide/${form.slug}` });
-      } else {
-        setResult({ success: false, message: data.error || 'Errore pubblicazione' });
-      }
-    } catch {
-      setResult({ success: false, message: 'Errore di connessione' });
-    } finally {
-      setPublishing(false);
+      const pubData = await pubRes.json();
+      if (!pubRes.ok) throw new Error(pubData.error);
+
+      setPublishResult(`Pubblicata su /guide/${autoSlug(title)}`);
+      setStep('review');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Errore pubblicazione');
+      setStep('review');
     }
+  }
+
+  function autoSlug(t: string) {
+    return t.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+  }
+
+  function formatInline(text: string): string {
+    const c = CATEGORIES[category].color;
+    return text
+      .replace(/\*\*(.+?)\*\*/g, '<strong style="color: #0f172a;">$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/`(.+?)`/g, `<code style="background:#f1f5f9;padding:2px 6px;border-radius:3px;font-size:10px;color:${c};">$1</code>`);
+  }
+
+  function markdownToHtml(md: string): string {
+    const c = CATEGORIES[category].color;
+    const lines = md.split('\n');
+    let html = '';
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t) { html += '<div style="height:10px;"></div>'; continue; }
+      if (t.startsWith('### ')) html += `<h3 style="color:#475569;font-size:15px;font-weight:700;margin:18px 0 6px;">${t.slice(4)}</h3>`;
+      else if (t.startsWith('## ')) html += `<h2 style="color:${c};font-size:20px;font-weight:800;margin:28px 0 10px;padding-bottom:6px;border-bottom:2px solid ${c}30;">${t.slice(3)}</h2>`;
+      else if (t.startsWith('# ')) html += `<h1 style="color:#f1f5f9;font-size:26px;font-weight:800;margin:32px 0 14px;">${t.slice(2)}</h1>`;
+      else if (t.startsWith('> ')) html += `<div style="border-left:3px solid ${c};background:${c}15;padding:10px 14px;margin:10px 0;border-radius:0 6px 6px 0;"><span style="color:#e2e8f0;font-size:13px;line-height:1.6;">${formatInline(t.slice(2))}</span></div>`;
+      else if (t.startsWith('- ') || t.startsWith('* ')) html += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;">&#8226;</span><span style="color:#cbd5e1;font-size:13px;line-height:1.6;">${formatInline(t.slice(2))}</span></div>`;
+      else if (/^\d+\. /.test(t)) { const txt = t.replace(/^\d+\.\s/, ''); html += `<div style="margin:4px 0 4px 12px;color:#cbd5e1;font-size:13px;line-height:1.6;">${formatInline(txt)}</div>`; }
+      else if (t === '---') html += '<hr style="border:none;border-top:1px solid #334155;margin:20px auto;width:50%;">';
+      else html += `<p style="color:#cbd5e1;font-size:13px;line-height:1.8;margin:5px 0;">${formatInline(t)}</p>`;
+    }
+    return html;
   }
 
   // --- LOGIN ---
@@ -347,183 +184,244 @@ export default function GeneraGuidePage() {
     return (
       <div className="min-h-screen bg-[#050510] flex items-center justify-center">
         <div className="bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl p-8 w-full max-w-md">
-          <h1 className="text-xl font-bold text-white mb-6 text-center">Admin - Genera Guide</h1>
-          <input type="password" placeholder="Password admin" value={password}
+          <h1 className="text-xl font-bold text-white mb-6 text-center">Genera Guide</h1>
+          <input type="password" placeholder="Password" value={password}
             onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleLogin()}
             className="w-full px-4 py-3 bg-[#111827] border border-[#1f2937] rounded-lg text-white mb-4" />
           {loginError && <p className="text-red-400 text-sm mb-4">{loginError}</p>}
-          <button onClick={handleLogin} className="w-full py-3 bg-cyan-600 text-white rounded-lg font-semibold hover:bg-cyan-500 transition">Accedi</button>
+          <button onClick={handleLogin} className="w-full py-3 bg-cyan-600 text-white rounded-lg font-semibold">Accedi</button>
         </div>
       </div>
     );
   }
 
-  const catConfig = TEMPLATES[form.category];
+  const cat = CATEGORIES[category];
 
+  // --- STEP 1: INPUT ---
+  if (step === 'input') {
+    return (
+      <div className="min-h-screen bg-[#050510] text-white">
+        <div className="max-w-2xl mx-auto px-4 py-12">
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-bold mb-2">Genera una Guida</h1>
+            <p className="text-gray-400">Scegli categoria, scrivi il titolo, e l'AI crea tutto.</p>
+          </div>
+
+          {/* Categoria */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+            {(Object.entries(CATEGORIES) as [GuideCategory, typeof cat][]).map(([key, val]) => (
+              <button key={key} onClick={() => setCategory(key)}
+                className={`py-3 px-4 rounded-xl text-sm font-semibold transition border-2 ${category === key ? 'border-opacity-100 bg-opacity-10' : 'border-transparent bg-[#0a0a1a] hover:bg-[#111827]'}`}
+                style={{ borderColor: category === key ? val.color : 'transparent', backgroundColor: category === key ? val.color + '15' : undefined, color: category === key ? val.color : '#9ca3af' }}>
+                {val.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Titolo */}
+          <div className="mb-6">
+            <label className="text-sm text-gray-400 mb-2 block">Titolo della guida</label>
+            <input value={title} onChange={e => setTitle(e.target.value)}
+              placeholder="Es: Deep Work: Concentrazione Estrema in 21 Giorni"
+              className="w-full px-4 py-3 bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl text-white text-lg focus:outline-none focus:border-gray-600" />
+          </div>
+
+          {/* Prompt */}
+          <div className="mb-6">
+            <label className="text-sm text-gray-400 mb-2 block">Cosa deve contenere? (opzionale)</label>
+            <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={3}
+              placeholder={cat.placeholder}
+              className="w-full px-4 py-3 bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl text-white text-sm focus:outline-none focus:border-gray-600 resize-none" />
+          </div>
+
+          {/* Opzioni */}
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Capitoli</label>
+              <select value={chapters} onChange={e => setChapters(parseInt(e.target.value))}
+                className="w-full px-3 py-2 bg-[#0a0a1a] border border-[#1a1a2e] rounded-lg text-white text-sm">
+                {[5, 6, 7, 8, 10, 12].map(n => <option key={n} value={n}>{n} capitoli</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Immagini</label>
+              <select value={generateImages ? (imageProvider === 'dalle' ? 'dalle' : 'leonardo') : 'none'}
+                onChange={e => { setGenerateImages(e.target.value !== 'none'); setImageProvider(e.target.value as 'dalle' | 'leonardo'); }}
+                className="w-full px-3 py-2 bg-[#0a0a1a] border border-[#1a1a2e] rounded-lg text-white text-sm">
+                <option value="dalle">DALL-E 3</option>
+                <option value="leonardo">Leonardo AI</option>
+                <option value="none">Nessuna</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-gray-500 mb-1 block">Prezzo EUR</label>
+              <input type="number" step="0.01" value={price} onChange={e => setPrice(parseFloat(e.target.value) || 9)}
+                className="w-full px-3 py-2 bg-[#0a0a1a] border border-[#1a1a2e] rounded-lg text-white text-sm" />
+            </div>
+          </div>
+
+          {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
+
+          <button onClick={handleGenerate} disabled={!title}
+            className="w-full py-4 rounded-xl font-bold text-lg transition disabled:opacity-40"
+            style={{ backgroundColor: cat.color }}>
+            Genera Guida Completa
+          </button>
+
+          <p className="text-center text-gray-600 text-xs mt-4">
+            Costo stimato: ~$0.15 testo {generateImages ? `+ ~$0.04 x ${chapters} immagini` : ''} = ~${generateImages ? (0.15 + 0.04 * chapters).toFixed(2) : '0.15'}
+          </p>
+
+          <div className="mt-8 text-center">
+            <a href="/admin" className="text-gray-500 text-sm hover:text-gray-300 transition">Dashboard Ordini</a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- STEP 2: GENERATING ---
+  if (step === 'generating') {
+    return (
+      <div className="min-h-screen bg-[#050510] text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gray-700 rounded-full mx-auto mb-6 animate-spin" style={{ borderTopColor: cat.color }}></div>
+          <h2 className="text-xl font-bold mb-2">Generazione in corso...</h2>
+          <p className="text-gray-400">{progress}</p>
+          <p className="text-gray-600 text-sm mt-4">Puo richiedere 30-60 secondi</p>
+        </div>
+      </div>
+    );
+  }
+
+  // --- STEP 3: REVIEW ---
   return (
     <div className="min-h-screen bg-[#050510] text-white">
       <div className="max-w-[1600px] mx-auto px-4 py-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold">Generatore Guide PDF</h1>
-            <p className="text-gray-400 text-sm mt-1">Crea, anteprima, modifica e pubblica</p>
+            <h1 className="text-xl font-bold">{title}</h1>
+            <div className="flex items-center gap-4 mt-1">
+              <span className="text-xs px-3 py-1 rounded-full" style={{ backgroundColor: cat.color + '20', color: cat.color }}>{cat.label}</span>
+              {result && (
+                <span className="text-xs text-gray-500">
+                  {result.stats.wordCount.toLocaleString()} parole — ~{result.stats.estimatedPages} pagine — {result.stats.chapters} capitoli — {result.stats.imagesGenerated} immagini
+                </span>
+              )}
+            </div>
           </div>
-          <div className="flex gap-3 items-center">
-            {versions.length > 0 && (
-              <span className="text-xs text-gray-500">
-                {versions.length} version{versions.length > 1 ? 'i' : 'e'} generata
-              </span>
-            )}
-            <button onClick={clearDraft} className="px-4 py-2 bg-red-900/30 border border-red-800 rounded-lg text-sm text-red-400 hover:bg-red-900/50 transition">
-              Nuova Guida
+          <div className="flex gap-3">
+            <button onClick={handleRegenerate}
+              className="px-4 py-2 bg-amber-900/30 border border-amber-800 rounded-lg text-sm text-amber-400 hover:bg-amber-900/50 transition">
+              Ricomincia
             </button>
-            <a href="/admin" className="px-4 py-2 bg-[#1a1a2e] border border-[#2a2a3e] rounded-lg text-sm hover:bg-[#2a2a3e] transition">
-              Dashboard Ordini
-            </a>
+            <button onClick={handleGenerate}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition" style={{ backgroundColor: cat.color + '20', color: cat.color }}>
+              Rigenera
+            </button>
+            <button onClick={handlePublish} disabled={step === 'publishing'}
+              className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm font-semibold hover:bg-green-500 transition disabled:opacity-50">
+              {step === 'publishing' ? 'Pubblicazione...' : 'Pubblica su Store'}
+            </button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[380px_1fr] gap-6">
-          {/* LEFT: Form + Actions */}
-          <div className="space-y-4">
-            {/* Metadata */}
-            <div className="bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl p-5">
-              <h2 className="text-sm font-semibold mb-3 uppercase tracking-wider" style={{ color: catConfig.color }}>Dettagli Guida</h2>
-              <div className="space-y-3">
-                <input value={form.title} onChange={e => updateField('title', e.target.value)}
-                  placeholder="Titolo guida" className="w-full px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-sm" />
-                <div className="grid grid-cols-2 gap-2">
-                  <input value={form.slug} onChange={e => updateField('slug', e.target.value)}
-                    placeholder="slug-auto" className="px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-gray-400 text-xs" />
-                  <select value={form.category} onChange={e => updateField('category', e.target.value)}
-                    className="px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-xs">
-                    {Object.entries(TEMPLATES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] text-gray-500 uppercase">Prezzo EUR</label>
-                    <input type="number" step="0.01" value={form.price} onChange={e => updateField('price', parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-sm" />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-gray-500 uppercase">Pagine</label>
-                    <input type="number" value={form.page_count} onChange={e => updateField('page_count', parseInt(e.target.value) || 0)}
-                      className="w-full px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-sm" />
-                  </div>
-                </div>
-                <input value={form.short_description} onChange={e => updateField('short_description', e.target.value)}
-                  placeholder="Descrizione breve (card store)" className="w-full px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-xs" />
-                <textarea value={form.description} onChange={e => updateField('description', e.target.value)} rows={2}
-                  placeholder="Descrizione completa (landing page)" className="w-full px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-xs resize-none" />
-                <textarea value={form.features} onChange={e => updateField('features', e.target.value)} rows={2}
-                  placeholder={"Features (una per riga)\n35+ pagine\nStampabile"} className="w-full px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-xs resize-none" />
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl p-5 space-y-3">
-              <button onClick={handleGenerate} disabled={generating || !form.title}
-                className="w-full py-3 rounded-lg font-semibold text-sm transition disabled:opacity-50"
-                style={{ backgroundColor: catConfig.color }}>
-                {generating ? 'Generazione...' : generatedHtml ? 'Rigenera PDF' : 'Genera PDF'}
-              </button>
-
-              {result?.pdfUrl && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <a href={result.pdfUrl} target="_blank"
-                      className="py-2 text-center bg-[#1a1a2e] border border-[#2a2a3e] rounded-lg text-xs text-cyan-400 hover:bg-[#2a2a3e] transition">
-                      Scarica HTML
-                    </a>
-                    <button onClick={() => { setTab('edit'); }}
-                      className="py-2 bg-[#1a1a2e] border border-[#2a2a3e] rounded-lg text-xs text-amber-400 hover:bg-[#2a2a3e] transition">
-                      Modifica e Rigenera
-                    </button>
-                  </div>
-                  <button onClick={handlePublish} disabled={publishing}
-                    className="w-full py-3 bg-green-600 text-white rounded-lg font-semibold text-sm hover:bg-green-500 transition disabled:opacity-50">
-                    {publishing ? 'Pubblicazione...' : 'Pubblica su Store'}
-                  </button>
-                </>
-              )}
-
-              {result && (
-                <div className={`p-3 rounded-lg text-xs ${result.success ? 'bg-green-900/20 text-green-400 border border-green-900' : 'bg-red-900/20 text-red-400 border border-red-900'}`}>
-                  {result.message}
-                </div>
-              )}
-            </div>
-
-            {/* Versioni */}
-            {versions.length > 0 && (
-              <div className="bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl p-5">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Cronologia Versioni</h3>
-                <div className="space-y-2">
-                  {versions.map((v, i) => (
-                    <div key={i} className="flex items-center justify-between text-xs">
-                      <span className="text-gray-400">v{i + 1} — {v.timestamp}</span>
-                      {v.url && (
-                        <a href={v.url} target="_blank" className="text-cyan-500 hover:underline">apri</a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+        {publishResult && (
+          <div className="mb-4 p-3 bg-green-900/20 border border-green-800 rounded-lg text-green-400 text-sm">
+            {publishResult}
           </div>
+        )}
+        {error && (
+          <div className="mb-4 p-3 bg-red-900/20 border border-red-800 rounded-lg text-red-400 text-sm">
+            {error}
+          </div>
+        )}
 
-          {/* RIGHT: Editor / Preview / PDF Preview */}
-          <div className="bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl overflow-hidden flex flex-col" style={{ minHeight: '85vh' }}>
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_340px] gap-6">
+          {/* Main content */}
+          <div className="bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl overflow-hidden flex flex-col" style={{ minHeight: '80vh' }}>
             {/* Tabs */}
             <div className="flex border-b border-[#1a1a2e] shrink-0">
-              {(['edit', 'preview', 'pdf-preview'] as const).map(t => (
+              {(['preview', 'edit', 'images'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)}
-                  disabled={t === 'pdf-preview' && !generatedHtml}
-                  className={`flex-1 py-3 text-sm font-semibold transition ${
-                    tab === t ? 'text-white bg-[#111827]' : 'text-gray-500 hover:text-gray-300 disabled:text-gray-700 disabled:cursor-not-allowed'
-                  }`}>
-                  {t === 'edit' ? 'Editor' : t === 'preview' ? 'Preview' : 'Anteprima PDF'}
+                  className={`flex-1 py-3 text-sm font-semibold transition ${tab === t ? 'text-white bg-[#111827]' : 'text-gray-500 hover:text-gray-300'}`}>
+                  {t === 'preview' ? 'Anteprima' : t === 'edit' ? 'Modifica Testo' : `Immagini (${result?.images.length || 0})`}
                 </button>
               ))}
             </div>
 
-            {/* Content */}
             <div className="flex-1 relative">
-              {tab === 'edit' && (
-                <textarea
-                  value={form.markdown_content}
-                  onChange={e => updateField('markdown_content', e.target.value)}
-                  className="absolute inset-0 w-full h-full px-5 py-4 bg-[#0d1117] text-gray-300 text-sm font-mono resize-none focus:outline-none leading-relaxed"
-                  placeholder="Scrivi in Markdown..."
-                  spellCheck={false}
-                />
-              )}
-
               {tab === 'preview' && (
-                <div className="absolute inset-0 overflow-y-auto px-6 py-5 bg-[#0d1117]"
-                  dangerouslySetInnerHTML={{ __html: markdownToPreviewHtml(form.markdown_content) }} />
+                <div className="absolute inset-0 overflow-y-auto px-8 py-6 bg-[#0d1117]"
+                  dangerouslySetInnerHTML={{ __html: markdownToHtml(editedMarkdown) }} />
               )}
 
-              {tab === 'pdf-preview' && generatedHtml && (
-                <iframe
-                  ref={previewRef}
-                  srcDoc={generatedHtml}
-                  className="absolute inset-0 w-full h-full border-0"
-                  title="Anteprima PDF"
-                />
+              {tab === 'edit' && (
+                <textarea value={editedMarkdown} onChange={e => setEditedMarkdown(e.target.value)}
+                  className="absolute inset-0 w-full h-full px-5 py-4 bg-[#0d1117] text-gray-300 text-sm font-mono resize-none focus:outline-none leading-relaxed"
+                  spellCheck={false} />
               )}
 
-              {tab === 'pdf-preview' && !generatedHtml && (
-                <div className="absolute inset-0 flex items-center justify-center text-gray-600">
-                  <div className="text-center">
-                    <p className="text-lg mb-2">Nessuna anteprima disponibile</p>
-                    <p className="text-sm">Clicca "Genera PDF" per creare l'anteprima</p>
-                  </div>
+              {tab === 'images' && (
+                <div className="absolute inset-0 overflow-y-auto p-6 bg-[#0d1117]">
+                  {result?.images && result.images.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      {result.images.map((img, i) => (
+                        <div key={i} className="bg-[#111827] rounded-xl overflow-hidden border border-[#1f2937]">
+                          <img src={img.url} alt={img.chapter} className="w-full aspect-square object-cover" />
+                          <div className="p-3">
+                            <p className="text-xs text-gray-400 truncate">{img.chapter}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center h-full text-gray-600">
+                      <p>Nessuna immagine generata. Rigenera con immagini abilitate.</p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Sidebar: metadata per pubblicazione */}
+          <div className="space-y-4">
+            <div className="bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl p-5">
+              <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Dettagli Store</h3>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Slug URL</label>
+                  <div className="px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-gray-400 text-xs">
+                    /guide/{autoSlug(title)}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Prezzo EUR</label>
+                  <input type="number" step="0.01" value={price} onChange={e => setPrice(parseFloat(e.target.value) || 9)}
+                    className="w-full px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500 mb-1 block">Descrizione breve</label>
+                  <input value={shortDesc} onChange={e => setShortDesc(e.target.value)}
+                    placeholder="Una riga per lo store"
+                    className="w-full px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-xs" />
+                </div>
+              </div>
+            </div>
+
+            {result && (
+              <div className="bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl p-5">
+                <h3 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Stats</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between"><span className="text-gray-500">Parole</span><span className="text-white">{result.stats.wordCount.toLocaleString()}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Pagine stimate</span><span className="text-white">~{result.stats.estimatedPages}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Capitoli</span><span className="text-white">{result.stats.chapters}</span></div>
+                  <div className="flex justify-between"><span className="text-gray-500">Immagini</span><span className="text-white">{result.stats.imagesGenerated}</span></div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
