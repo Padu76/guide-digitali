@@ -102,7 +102,9 @@ REGOLE:
 - ALMENO 1 box con > (citazione/nota)
 - Fine capitolo: box > **Da fare subito:** con 3 azioni concrete
 - NO emoji. Tono autorevole e pratico.
-- Ogni frase deve aggiungere valore. ZERO filler.`
+- Ogni frase deve aggiungere valore. ZERO filler.
+- Quando menzioni strumenti AI, varia: cita ChatGPT, Claude, Gemini, Perplexity, strumenti specifici di settore. NON focalizzarti su un solo tool.
+- Sii specifico con numeri, percentuali, tempi reali.`
         },
         { role: 'user', content: `Capitolo ${chapterNum} della guida "${title}".\nTitolo: "${chapterTitle}"\nCategoria: ${catContext}\n\nScrivi COMPLETO. MINIMO 1500 parole. Inizia con ## ${chapterTitle}` }
       ], 4096);

@@ -583,6 +583,10 @@ ${bodyHtml}
             </div>
           </div>
           <div className="flex gap-3">
+            <a href="/admin"
+              className="px-4 py-2 bg-[#1a1a2e] border border-[#2a2a3e] rounded-lg text-sm text-gray-400 hover:text-white transition flex items-center">
+              Admin
+            </a>
             <button onClick={handleRegenerate}
               className="px-4 py-2 bg-amber-900/30 border border-amber-800 rounded-lg text-sm text-amber-400 hover:bg-amber-900/50 transition">
               Ricomincia
