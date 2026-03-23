@@ -12,6 +12,7 @@ import GuideHeader from '@/components/GuideHeader';
 import GuideFooter from '@/components/GuideFooter';
 import CartDrawer from '@/components/CartDrawer';
 import { useCart } from '@/components/CartProvider';
+import GuidePreview from '@/components/GuidePreview';
 
 export default function GuideDetailPage() {
   const params = useParams();
@@ -95,7 +96,8 @@ export default function GuideDetailPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div className="relative">
-            <div className="sticky top-24">
+            <div className="sticky top-24 space-y-6">
+              {/* Cover */}
               <div className="relative aspect-[3/4] rounded-xl overflow-hidden border border-white/5"
                    style={{ boxShadow: `0 0 60px ${config.glowColor}` }}>
                 {product.cover_image ? (
@@ -110,6 +112,9 @@ export default function GuideDetailPage() {
                   </div>
                 )}
               </div>
+
+              {/* Anteprima prime pagine */}
+              <GuidePreview description={product.description} title={product.title} color={config.glowColor} />
             </div>
           </div>
 
