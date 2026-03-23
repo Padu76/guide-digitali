@@ -74,24 +74,74 @@ export default function GeneraGuidePage() {
     else setLoginError('Password non corretta');
   }
 
+  async function apiCall(body: Record<string, unknown>) {
+    const res = await fetch('/api/admin/generate-guide', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Errore API');
+    return data;
+  }
+
   async function handleGenerate() {
     if (!title) { setError('Inserisci un titolo'); return; }
     setStep('generating');
     setError('');
-    setProgress('Generazione contenuto con GPT-4o...');
 
     try {
-      const res = await fetch('/api/admin/generate-guide', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, category, prompt, chapters, generateImages }),
+      // 1. Outline
+      setProgress('Creazione struttura capitoli...');
+      const outlineData = await apiCall({ step: 'outline', title, category, prompt, chapters });
+      const chapterTitles: string[] = outlineData.chapterTitles;
+
+      // 2. Introduzione
+      setProgress('Scrittura introduzione...');
+      const introData = await apiCall({ step: 'intro', title, category, chapterTitles });
+      let fullMarkdown = `# ${title}\n\n${introData.content}\n\n`;
+
+      // 3. Capitoli uno per uno
+      const chapterTexts: string[] = [];
+      for (let i = 0; i < chapterTitles.length; i++) {
+        setProgress(`Scrittura capitolo ${i + 1}/${chapterTitles.length}: ${chapterTitles[i]}...`);
+        const chapData = await apiCall({
+          step: 'chapter', title, category, chapterTitle: chapterTitles[i], chapterNum: i + 1,
+        });
+        chapterTexts.push(chapData.content);
+        fullMarkdown += chapData.content + '\n\n';
+      }
+
+      // 4. Conclusione
+      setProgress('Scrittura conclusione...');
+      const concData = await apiCall({ step: 'conclusion', title, category });
+      fullMarkdown += concData.content;
+
+      // 5. Immagini (parallelo, non bloccante)
+      let images: Array<{ chapter: string; url: string }> = [];
+      if (generateImages) {
+        setProgress(`Generazione immagini (${chapterTitles.length})...`);
+        const imgPromises = chapterTitles.map(ct =>
+          apiCall({ step: 'image', title, category, chapterTitle: ct })
+            .then(d => d.url ? { chapter: ct, url: d.url } : null)
+            .catch(() => null)
+        );
+        const imgResults = await Promise.allSettled(imgPromises);
+        images = imgResults
+          .filter((r): r is PromiseFulfilledResult<{ chapter: string; url: string } | null> => r.status === 'fulfilled')
+          .map(r => r.value)
+          .filter((v): v is { chapter: string; url: string } => v !== null);
+      }
+
+      const wordCount = fullMarkdown.split(/\s+/).length;
+      const estimatedPages = Math.max(25, Math.ceil(wordCount / 250));
+
+      setResult({
+        markdown: fullMarkdown,
+        images,
+        stats: { wordCount, estimatedPages, chapters: chapterTitles.length, imagesGenerated: images.length },
       });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Errore generazione');
-
-      setResult(data);
-      setEditedMarkdown(data.markdown);
+      setEditedMarkdown(fullMarkdown);
       setStep('review');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore');

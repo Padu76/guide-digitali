@@ -1,5 +1,5 @@
 // E:\guide-digitali\src\app\api\admin\generate-guide\route.ts
-// Genera guida completa: GPT-4o (testo capitolo per capitolo) + DALL-E 3 (immagini)
+// Genera guida step by step: ogni chiamata fa UN solo step per evitare timeout Vercel
 
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -12,7 +12,7 @@ const CATEGORY_CONTEXT: Record<string, string> = {
   biohacking: 'Benessere, performance, biohacking, longevita, sonno, energia, routine salutari',
 };
 
-async function callGPT(messages: Array<{ role: string; content: string }>, maxTokens = 4000): Promise<string> {
+async function callGPT(messages: Array<{ role: string; content: string }>, maxTokens = 4096): Promise<string> {
   const res = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
@@ -20,150 +20,33 @@ async function callGPT(messages: Array<{ role: string; content: string }>, maxTo
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(`OpenAI errore: ${res.status} - ${JSON.stringify(err)}`);
+    throw new Error(`OpenAI: ${res.status} - ${JSON.stringify(err)}`);
   }
   const data = await res.json();
   return data.choices[0]?.message?.content || '';
 }
 
-// Step 1: Genera outline dei capitoli
-async function generateOutline(title: string, category: string, prompt: string, chapters: number): Promise<string[]> {
-  const result = await callGPT([
-    {
-      role: 'system',
-      content: `Sei un autore di guide digitali premium in italiano. Genera SOLO la lista dei titoli dei capitoli, uno per riga, senza numerazione. Massimo ${chapters} capitoli. Ogni titolo deve essere specifico e pratico, non generico.`
-    },
-    {
-      role: 'user',
-      content: `Guida: "${title}"\nCategoria: ${CATEGORY_CONTEXT[category] || category}\n${prompt ? `Note: ${prompt}` : ''}\n\nGenera ${chapters} titoli di capitolo, uno per riga. Solo i titoli, niente altro.`
-    }
-  ], 500);
-
-  return result.split('\n').map(l => l.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*]\s*/, '').trim()).filter(l => l.length > 3).slice(0, chapters);
-}
-
-// Step 2: Genera un singolo capitolo completo e dettagliato
-async function generateChapter(title: string, chapterTitle: string, chapterNum: number, totalChapters: number, category: string): Promise<string> {
-  const result = await callGPT([
-    {
-      role: 'system',
-      content: `Sei un autore esperto che scrive guide digitali premium in italiano. Scrivi capitoli LUNGHI, DETTAGLIATI e PRATICI.
-
-REGOLE OBBLIGATORIE:
-- Il capitolo DEVE avere MINIMO 1500 parole. NON fermarti prima di 1500 parole. Conta mentalmente.
-- Usa markdown: ## per titolo capitolo, ### per sottosezioni
-- Usa **grassetto** per concetti chiave (IMPORTANTE: scrivi **parola** con asterischi)
-- Includi ALMENO 3 sottosezioni (###)
-- Includi ALMENO 1 esempio pratico reale con nome e situazione
-- Includi ALMENO 1 lista numerata (step-by-step)
-- Includi ALMENO 1 lista puntata
-- Includi ALMENO 1 box pratico con > (citazione markdown)
-- Alla fine del capitolo aggiungi SEMPRE un box:
-  > **Da fare subito:**
-  > 1. Prima azione concreta
-  > 2. Seconda azione concreta
-  > 3. Terza azione concreta
-- NON usare emoji
-- Scrivi in modo autorevole, pratico, con esempi concreti
-- NON essere generico. Ogni frase deve aggiungere valore.
-- Scrivi come se ogni parola costasse denaro al lettore.`
-    },
-    {
-      role: 'user',
-      content: `Scrivi il CAPITOLO ${chapterNum} di ${totalChapters} per la guida "${title}".
-
-Titolo capitolo: "${chapterTitle}"
-Categoria: ${CATEGORY_CONTEXT[category] || category}
-
-Scrivi il capitolo COMPLETO e MOLTO LUNGO. MINIMO 1500 parole, ideale 2000. NON abbreviare. NON riassumere. Ogni sottosezione deve avere almeno 3 paragrafi. Includi esempi concreti con nomi e numeri. Inizia con ## ${chapterTitle}`
-    }
-  ], 4000);
-
-  return result;
-}
-
-// Step 3: Genera introduzione
-async function generateIntro(title: string, chapterTitles: string[], category: string): Promise<string> {
-  const chapList = chapterTitles.map((t, i) => `${i + 1}. ${t}`).join('\n');
-  const result = await callGPT([
-    {
-      role: 'system',
-      content: `Sei un autore di guide digitali premium in italiano. Scrivi un'introduzione CONVINCENTE e LUNGA (minimo 500 parole) che spieghi perche questa guida vale il prezzo. Usa markdown.`
-    },
-    {
-      role: 'user',
-      content: `Scrivi l'introduzione per la guida "${title}".
-
-Capitoli della guida:
-${chapList}
-
-Includi:
-- ## Introduzione (come titolo)
-- ### Perche questa guida (3-4 paragrafi convincenti)
-- ### Cosa otterrai (lista di 6-8 benefici concreti con -)
-- ### Come usare questa guida (istruzioni pratiche)
-- ### A chi e rivolta (profilo ideale del lettore)
-
-Scrivi in modo che il lettore capisca subito il valore. Minimo 500 parole.`
-    }
-  ], 2000);
-
-  return result;
-}
-
-// Step 4: Genera conclusione
-async function generateConclusion(title: string, category: string): Promise<string> {
-  const result = await callGPT([
-    {
-      role: 'system',
-      content: 'Sei un autore di guide digitali premium in italiano. Scrivi una conclusione motivante e pratica. Minimo 400 parole. Usa markdown.'
-    },
-    {
-      role: 'user',
-      content: `Scrivi la conclusione per la guida "${title}".
-
-Includi:
-- ## Conclusioni e Prossimi Passi
-- ### Riepilogo (cosa hai imparato)
-- ### I tuoi prossimi 7 giorni (piano azione concreto giorno per giorno)
-- ### Risorse consigliate (3-5 strumenti/libri/siti utili)
-- Un messaggio motivante finale
-- CTA: "Scopri tutte le guide su guidedigitali.vercel.app"
-
-Minimo 400 parole.`
-    }
-  ], 1500);
-
-  return result;
-}
-
-// Step 5: Genera immagine capitolo
 async function generateImage(chapterTitle: string, category: string): Promise<string> {
   const styleMap: Record<string, string> = {
-    fitness: 'clean modern fitness illustration, cyan and teal accents, white background, minimalist, professional',
-    business: 'futuristic tech business illustration, purple and violet accents, white background, digital, clean',
-    mindset: 'zen productivity illustration, amber and gold accents, white background, calm, focused',
-    biohacking: 'wellness biohacking illustration, rose and pink accents, white background, scientific, modern',
+    fitness: 'clean modern fitness illustration, cyan and teal accents, white background, minimalist',
+    business: 'futuristic tech business illustration, purple and violet accents, white background, digital',
+    mindset: 'zen productivity illustration, amber and gold accents, white background, calm',
+    biohacking: 'wellness biohacking illustration, rose and pink accents, white background, scientific',
   };
-
   try {
     const res = await fetch('https://api.openai.com/v1/images/generations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt: `${styleMap[category] || 'professional illustration, white background'}, concept for: ${chapterTitle}. Abstract, elegant, no faces, no text, no words, no letters. Clean vector style.`,
-        n: 1,
-        size: '1792x1024',
-        quality: 'standard',
+        prompt: `${styleMap[category] || 'professional illustration'}, concept for: ${chapterTitle}. Abstract, elegant, no faces, no text. Clean style.`,
+        n: 1, size: '1792x1024', quality: 'standard',
       }),
     });
     if (!res.ok) return '';
     const data = await res.json();
     return data.data?.[0]?.url || '';
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 }
 
 export async function POST(request: NextRequest) {
@@ -172,88 +55,78 @@ export async function POST(request: NextRequest) {
     if (authCookie?.value !== 'authenticated') {
       return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 });
     }
-
     if (!OPENAI_API_KEY) {
       return NextResponse.json({ error: 'OPENAI_API_KEY non configurata' }, { status: 500 });
     }
 
     const body = await request.json();
-    const { title, category, prompt, chapters = 8, generateImages = true } = body;
+    const { step, title, category, prompt, chapters = 8, chapterTitles, chapterTitle, chapterNum } = body;
 
-    if (!title || !category) {
-      return NextResponse.json({ error: 'Titolo e categoria obbligatori' }, { status: 400 });
+    const catContext = CATEGORY_CONTEXT[category] || category;
+
+    // STEP 1: Genera outline
+    if (step === 'outline') {
+      const result = await callGPT([
+        { role: 'system', content: `Genera SOLO la lista dei titoli dei capitoli per una guida in italiano. Uno per riga, senza numerazione. Massimo ${chapters} capitoli. Titoli specifici e pratici.` },
+        { role: 'user', content: `Guida: "${title}"\nCategoria: ${catContext}\n${prompt ? `Note: ${prompt}` : ''}\n\nGenera ${chapters} titoli, uno per riga.` }
+      ], 500);
+      const titles = result.split('\n').map((l: string) => l.replace(/^\d+[\.\)]\s*/, '').replace(/^[-*]\s*/, '').trim()).filter((l: string) => l.length > 3).slice(0, chapters);
+      return NextResponse.json({ success: true, chapterTitles: titles });
     }
 
-    // 1. Genera outline
-    const chapterTitles = await generateOutline(title, category, prompt || '', chapters);
-    if (chapterTitles.length === 0) throw new Error('Nessun capitolo generato');
-
-    // 2. Genera introduzione
-    const intro = await generateIntro(title, chapterTitles, category);
-
-    // 3. Genera ogni capitolo (sequenziale per evitare rate limit)
-    const chapterTexts: string[] = [];
-    for (let i = 0; i < chapterTitles.length; i++) {
-      const text = await generateChapter(title, chapterTitles[i], i + 1, chapterTitles.length, category);
-      // Se capitolo troppo corto, rigenera con prompt piu aggressivo
-      if (text.split(/\s+/).length < 800) {
-        const retry = await generateChapter(title, chapterTitles[i], i + 1, chapterTitles.length, category);
-        chapterTexts.push(retry.split(/\s+/).length > text.split(/\s+/).length ? retry : text);
-        continue;
-      }
-      chapterTexts.push(text);
+    // STEP 2: Genera introduzione
+    if (step === 'intro') {
+      const chapList = (chapterTitles || []).map((t: string, i: number) => `${i + 1}. ${t}`).join('\n');
+      const result = await callGPT([
+        { role: 'system', content: 'Sei un autore di guide digitali premium in italiano. Scrivi un\'introduzione CONVINCENTE e LUNGA (minimo 600 parole). Usa markdown.' },
+        { role: 'user', content: `Introduzione per la guida "${title}".\n\nCapitoli:\n${chapList}\n\nIncludi:\n- ## Introduzione\n- ### Perche questa guida (3-4 paragrafi)\n- ### Cosa otterrai (6-8 benefici con -)\n- ### Come usare questa guida\n- ### A chi e rivolta\n\nMinimo 600 parole. Scrivi in modo che il lettore capisca il valore.` }
+      ], 2500);
+      return NextResponse.json({ success: true, content: result });
     }
 
-    // 4. Genera conclusione
-    const conclusion = await generateConclusion(title, category);
+    // STEP 3: Genera singolo capitolo
+    if (step === 'chapter') {
+      const result = await callGPT([
+        {
+          role: 'system',
+          content: `Sei un autore esperto di guide digitali premium in italiano. Scrivi capitoli LUNGHI e DETTAGLIATI.
 
-    // 5. Assembla markdown completo
-    const fullMarkdown = [
-      `# ${title}`,
-      '',
-      intro,
-      '',
-      ...chapterTexts.map(t => t + '\n'),
-      conclusion,
-    ].join('\n\n');
-
-    // 6. Genera immagini (parallelo, batch di 3)
-    let images: Array<{ chapter: string; url: string }> = [];
-    if (generateImages) {
-      const batchSize = 3;
-      for (let i = 0; i < chapterTitles.length; i += batchSize) {
-        const batch = chapterTitles.slice(i, i + batchSize);
-        const results = await Promise.allSettled(
-          batch.map(ct => generateImage(ct, category))
-        );
-        for (let j = 0; j < batch.length; j++) {
-          const r = results[j];
-          if (r.status === 'fulfilled' && r.value) {
-            images.push({ chapter: batch[j], url: r.value });
-          }
-        }
-      }
+REGOLE:
+- MINIMO 1500 parole per capitolo. NON fermarti prima.
+- Usa ## per titolo capitolo, ### per sottosezioni
+- Usa **grassetto** per concetti chiave
+- ALMENO 4 sottosezioni (###)
+- ALMENO 1 esempio pratico con nome e numeri
+- ALMENO 1 lista numerata step-by-step
+- ALMENO 1 lista puntata
+- ALMENO 1 box con > (citazione/nota)
+- Fine capitolo: box > **Da fare subito:** con 3 azioni concrete
+- NO emoji. Tono autorevole e pratico.
+- Ogni frase deve aggiungere valore. ZERO filler.`
+        },
+        { role: 'user', content: `Capitolo ${chapterNum} della guida "${title}".\nTitolo: "${chapterTitle}"\nCategoria: ${catContext}\n\nScrivi COMPLETO. MINIMO 1500 parole. Inizia con ## ${chapterTitle}` }
+      ], 4096);
+      return NextResponse.json({ success: true, content: result });
     }
 
-    const wordCount = fullMarkdown.split(/\s+/).length;
-    const estimatedPages = Math.max(25, Math.ceil(wordCount / 250));
+    // STEP 4: Genera conclusione
+    if (step === 'conclusion') {
+      const result = await callGPT([
+        { role: 'system', content: 'Autore guide premium in italiano. Conclusione motivante e pratica. Minimo 500 parole. Markdown.' },
+        { role: 'user', content: `Conclusione per "${title}".\n\nIncludi:\n- ## Conclusioni e Prossimi Passi\n- ### Riepilogo\n- ### I tuoi prossimi 7 giorni (piano concreto)\n- ### Risorse consigliate (5 strumenti/libri)\n- Messaggio motivante\n- CTA: "Scopri tutte le guide su guidedigitali.vercel.app"\n\nMinimo 500 parole.` }
+      ], 2000);
+      return NextResponse.json({ success: true, content: result });
+    }
 
-    return NextResponse.json({
-      success: true,
-      markdown: fullMarkdown,
-      images,
-      stats: {
-        wordCount,
-        estimatedPages,
-        chapters: chapterTitles.length,
-        imagesGenerated: images.length,
-      },
-    });
+    // STEP 5: Genera immagine
+    if (step === 'image') {
+      const url = await generateImage(chapterTitle || title, category);
+      return NextResponse.json({ success: true, url });
+    }
+
+    return NextResponse.json({ error: 'Step non valido' }, { status: 400 });
   } catch (error: unknown) {
-    console.error('Errore generazione guida:', error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Errore interno' },
-      { status: 500 }
-    );
+    console.error('Errore:', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Errore' }, { status: 500 });
   }
 }
