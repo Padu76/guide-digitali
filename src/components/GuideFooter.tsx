@@ -25,7 +25,7 @@ export default function GuideFooter() {
               <li><span className="text-cyan-400/70">Fitness & Allenamento</span></li>
               <li><span className="text-violet-400/70">Business & AI Automation</span></li>
               <li><span className="text-amber-400/70">Mindset & Produttivita</span></li>
-              <li><span className="text-emerald-400/70">Alta Performance & Biohacking</span></li>
+              <li><span className="text-emerald-400/70">Biohacking: Benessere & Performance</span></li>
             </ul>
           </div>
 

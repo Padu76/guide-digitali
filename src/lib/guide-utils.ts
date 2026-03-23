@@ -45,7 +45,7 @@ export const CATEGORY_CONFIG: Record<GuideCategory, {
     textColor: 'text-amber-400',
   },
   biohacking: {
-    label: 'Alta Performance & Biohacking',
+    label: 'Biohacking: Benessere & Performance',
     color: 'emerald',
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/30',
