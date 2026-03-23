@@ -12,7 +12,7 @@ from io import BytesIO
 from pathlib import Path
 
 # --- CONFIG ---
-RAPIDAPI_KEY = "309b989982msh873428813d782bbp130a6ejsn52f3fd1486e9"
+RAPIDAPI_KEY = os.environ.get("RAPIDAPI_KEY", "")
 EXERCISEDB_HOST = "exercisedb.p.rapidapi.com"
 OUTPUT_DIR = Path(__file__).parent.parent / "output"
 IMAGES_DIR = OUTPUT_DIR / "exercise_images"
