@@ -28,10 +28,35 @@ export async function POST(request: NextRequest) {
       page_count,
       features,
       pdf_url,
+      cover_image_url, // URL immagine DALL-E da salvare come cover
     } = body;
 
     if (!title || !slug || !category) {
       return NextResponse.json({ error: 'Campi obbligatori mancanti' }, { status: 400 });
+    }
+
+    // Salva cover image su Supabase Storage se fornita
+    let coverImagePath = `/guide/covers/${slug}.webp`;
+    if (cover_image_url) {
+      try {
+        const imgRes = await fetch(cover_image_url);
+        if (imgRes.ok) {
+          const imgBuffer = await imgRes.arrayBuffer();
+          const coverFileName = `guide-covers/${slug}.png`;
+          await supabase.storage
+            .from('guide-pdfs')
+            .upload(coverFileName, imgBuffer, {
+              contentType: 'image/png',
+              upsert: true,
+            });
+          const { data: coverUrl } = supabase.storage
+            .from('guide-pdfs')
+            .getPublicUrl(coverFileName);
+          coverImagePath = coverUrl.publicUrl;
+        }
+      } catch (e) {
+        console.error('Errore salvataggio cover:', e);
+      }
     }
 
     // Controlla se slug esiste gia
@@ -43,19 +68,25 @@ export async function POST(request: NextRequest) {
 
     if (existing) {
       // Aggiorna guida esistente
+      const updateData: Record<string, unknown> = {
+        title,
+        category,
+        description: description || '',
+        short_description: short_description || null,
+        price: price || 9.00,
+        page_count: page_count || null,
+        features: features || [],
+        pdf_path: pdf_url || '',
+        active: true,
+      };
+      // Aggiorna cover solo se ne abbiamo una nuova da DALL-E
+      if (cover_image_url) {
+        updateData.cover_image = coverImagePath;
+      }
+
       const { error } = await supabase
         .from('guide_products')
-        .update({
-          title,
-          category,
-          description: description || '',
-          short_description: short_description || null,
-          price: price || 9.00,
-          page_count: page_count || null,
-          features: features || [],
-          pdf_path: pdf_url || '',
-          active: true,
-        })
+        .update(updateData)
         .eq('slug', slug);
 
       if (error) {
@@ -78,7 +109,7 @@ export async function POST(request: NextRequest) {
         page_count: page_count || null,
         features: features || [],
         pdf_path: pdf_url || '',
-        cover_image: `/guide/covers/${slug}.webp`,
+        cover_image: coverImagePath,
         preview_pages: 3,
         download_count: 0,
         active: true,

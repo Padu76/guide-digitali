@@ -92,7 +92,8 @@ function parseMarkdown(markdown: string): Array<{ type: string; content: string;
 function generateHTML(
   title: string,
   category: GuideCategory,
-  sections: Array<{ type: string; content: string; level?: number }>
+  sections: Array<{ type: string; content: string; level?: number }>,
+  imageMap: Record<string, string> = {}
 ): string {
   const colors = CATEGORY_COLORS[category];
   const label = CATEGORY_LABELS[category];
@@ -110,7 +111,13 @@ function generateHTML(
         if (section.level === 1) {
           bodyHtml += `<h1 style="color: #0f172a; font-size: 28px; font-weight: 800; margin: 40px 0 16px; page-break-after: avoid;">${section.content}</h1>`;
         } else if (section.level === 2) {
+          bodyHtml += `<div style="page-break-before: always;"></div>`;
           bodyHtml += `<h2 style="color: ${colors.primary}; font-size: 22px; font-weight: 800; margin: 32px 0 12px; padding-bottom: 6px; border-bottom: 2px solid ${colors.primary}25; page-break-after: avoid;">${section.content}</h2>`;
+          // Immagine capitolo se disponibile
+          const imgUrl = imageMap[section.content];
+          if (imgUrl) {
+            bodyHtml += `<div style="text-align: center; margin: 16px 0 24px;"><img src="${imgUrl}" style="max-width: 100%; height: auto; max-height: 220px; border-radius: 10px; box-shadow: 0 4px 16px rgba(0,0,0,0.08);" alt="${section.content}"></div>`;
+          }
         } else {
           bodyHtml += `<h3 style="color: #475569; font-size: 15px; font-weight: 700; margin: 20px 0 8px;">${section.content}</h3>`;
         }
@@ -195,7 +202,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { title, slug, category, markdown } = body;
+    const { title, slug, category, markdown, images } = body;
+    // images: Array<{ chapter: string; url: string }> — URL permanenti Supabase
 
     if (!title || !slug || !category || !markdown) {
       return NextResponse.json({ error: 'Campi mancanti' }, { status: 400 });
@@ -204,8 +212,16 @@ export async function POST(request: NextRequest) {
     // Parse markdown
     const sections = parseMarkdown(markdown);
 
-    // Genera HTML
-    const html = generateHTML(title, category as GuideCategory, sections);
+    // Mappa immagini per capitolo
+    const imageMap: Record<string, string> = {};
+    if (images && Array.isArray(images)) {
+      images.forEach((img: { chapter: string; url: string }) => {
+        imageMap[img.chapter] = img.url;
+      });
+    }
+
+    // Genera HTML con immagini
+    const html = generateHTML(title, category as GuideCategory, sections, imageMap);
 
     // Salva HTML su Supabase Storage (il PDF vero lo generiamo lato client o con servizio esterno)
     const htmlFileName = `guide-html/${slug}.html`;

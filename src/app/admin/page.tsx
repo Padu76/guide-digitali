@@ -149,9 +149,7 @@ export default function GuideAdminPage() {
     }
   }
 
-  async function handleExport() {
-    window.open('/api/admin/export', '_blank');
-  }
+  // Export rimosso - non necessario
 
   // Login form
   if (!authed) {

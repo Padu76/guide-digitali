@@ -131,6 +131,24 @@ export default function GeneraGuidePage() {
           .filter((r): r is PromiseFulfilledResult<{ chapter: string; url: string } | null> => r.status === 'fulfilled')
           .map(r => r.value)
           .filter((v): v is { chapter: string; url: string } => v !== null);
+
+        // Salva immagini su Supabase Storage (URL permanenti)
+        if (images.length > 0) {
+          setProgress('Salvataggio immagini permanenti...');
+          try {
+            const saveRes = await fetch('/api/admin/save-images', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ images, slug: autoSlug(title) }),
+            });
+            const saveData = await saveRes.json();
+            if (saveData.success && saveData.images) {
+              images = saveData.images;
+            }
+          } catch (e) {
+            console.error('Errore salvataggio immagini:', e);
+          }
+        }
       }
 
       const wordCount = fullMarkdown.split(/\s+/).length;
@@ -162,16 +180,23 @@ export default function GeneraGuidePage() {
     setPublishResult('');
 
     try {
-      // 1. Carica HTML su Supabase
+      // 1. Carica HTML su Supabase (con immagini permanenti)
       const genRes = await fetch('/api/admin/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, slug: autoSlug(title), category, markdown: editedMarkdown }),
+        body: JSON.stringify({
+          title,
+          slug: autoSlug(title),
+          category,
+          markdown: editedMarkdown,
+          images: result.images, // URL permanenti Supabase
+        }),
       });
       const genData = await genRes.json();
       if (!genRes.ok) throw new Error(genData.error);
 
-      // 2. Pubblica su store
+      // 2. Pubblica su store (con cover automatica dalla prima immagine DALL-E)
+      const firstImage = result.images?.[0]?.url || null;
       const pubRes = await fetch('/api/admin/publish-guide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -185,6 +210,7 @@ export default function GeneraGuidePage() {
           page_count: result.stats.estimatedPages,
           features: [`${result.stats.estimatedPages}+ pagine`, `${result.stats.chapters} capitoli`, 'Stampabile', 'Download immediato'],
           pdf_url: genData.pdfUrl,
+          cover_image_url: firstImage,
         }),
       });
       const pubData = await pubRes.json();
