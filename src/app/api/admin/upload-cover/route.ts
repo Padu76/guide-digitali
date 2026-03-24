@@ -1,5 +1,5 @@
 // E:\guide-digitali\src\app\api\admin\upload-cover\route.ts
-// Upload cover image per una guida su Supabase Storage
+// Upload cover image per una guida su Supabase Storage (FormData)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -16,23 +16,27 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { slug, image_base64, content_type, ext } = await request.json();
+    const formData = await request.formData();
+    const file = formData.get('file') as File | null;
+    const slug = formData.get('slug') as string | null;
+    const guideId = formData.get('guide_id') as string | null;
 
-    if (!slug || !image_base64) {
-      return NextResponse.json({ error: 'slug e image_base64 richiesti' }, { status: 400 });
+    if (!file || !slug) {
+      return NextResponse.json({ error: 'File e slug richiesti' }, { status: 400 });
     }
 
-    // Converti base64 in buffer
-    const buffer = Buffer.from(image_base64, 'base64');
+    // Leggi file come buffer
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const contentType = file.type || 'image/jpeg';
 
-    // Salva sempre come .jpg per consistenza (o mantieni estensione originale)
-    const fileName = `guide-covers/${slug}.${ext || 'jpg'}`;
+    // Salva su Supabase Storage
+    const fileName = `guide-covers/${slug}.${ext}`;
 
-    // Upload su Supabase Storage (upsert sovrascrive se esiste)
     const { error: uploadError } = await supabase.storage
       .from('guide-pdfs')
       .upload(fileName, buffer, {
-        contentType: content_type || 'image/jpeg',
+        contentType,
         upsert: true,
       });
 
@@ -45,10 +49,19 @@ export async function POST(request: NextRequest) {
       .from('guide-pdfs')
       .getPublicUrl(fileName);
 
+    const publicUrl = urlData.publicUrl;
+
+    // Aggiorna il DB se abbiamo l'ID
+    if (guideId) {
+      await supabase
+        .from('guide_products')
+        .update({ cover_image: publicUrl })
+        .eq('id', guideId);
+    }
+
     return NextResponse.json({
       success: true,
-      url: urlData.publicUrl,
-      fileName,
+      url: publicUrl,
     });
   } catch (err) {
     console.error('Errore upload cover:', err);

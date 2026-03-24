@@ -133,26 +133,14 @@ export default function GuideAdminPage() {
 
   async function changeCover(guide: GuideProduct, file: File) {
     try {
-      // Converti file in base64
-      const buffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) {
-        binary += String.fromCharCode(bytes[i]);
-      }
-      const base64 = btoa(binary);
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-      const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('slug', guide.slug);
+      formData.append('guide_id', guide.id);
 
       const res = await fetch('/api/admin/upload-cover', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          slug: guide.slug,
-          image_base64: base64,
-          content_type: contentType,
-          ext,
-        }),
+        body: formData,
       });
 
       if (!res.ok) {
@@ -162,13 +150,6 @@ export default function GuideAdminPage() {
       }
 
       const data = await res.json();
-      // Aggiorna anche il DB
-      await fetch('/api/admin/guides', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: guide.id, cover_image: data.url }),
-      });
-
       // Aggiorna UI
       setGuides(prev => prev.map(g => g.id === guide.id ? { ...g, cover_image: data.url } : g));
       alert('Cover aggiornata!');
