@@ -35,18 +35,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Campi obbligatori mancanti' }, { status: 400 });
     }
 
-    // Salva cover image su Supabase Storage se fornita
+    // Salva cover image su Supabase Storage se fornita (DALL-E)
+    // Altrimenti cerca se esiste gia un .jpg manuale nel bucket
     let coverImagePath = `/guide/covers/${slug}.webp`;
     if (cover_image_url) {
       try {
         const imgRes = await fetch(cover_image_url);
         if (imgRes.ok) {
           const imgBuffer = await imgRes.arrayBuffer();
-          const coverFileName = `guide-covers/${slug}.png`;
+          const coverFileName = `guide-covers/${slug}.jpg`;
           await supabase.storage
             .from('guide-pdfs')
             .upload(coverFileName, imgBuffer, {
-              contentType: 'image/png',
+              contentType: 'image/jpeg',
               upsert: true,
             });
           const { data: coverUrl } = supabase.storage
@@ -57,6 +58,12 @@ export async function POST(request: NextRequest) {
       } catch (e) {
         console.error('Errore salvataggio cover:', e);
       }
+    } else {
+      // Nessuna immagine DALL-E: cerca .jpg nel bucket
+      const { data: coverUrl } = supabase.storage
+        .from('guide-pdfs')
+        .getPublicUrl(`guide-covers/${slug}.jpg`);
+      coverImagePath = coverUrl.publicUrl;
     }
 
     // Controlla se slug esiste gia

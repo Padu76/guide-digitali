@@ -131,6 +131,48 @@ export default function GuideAdminPage() {
     }
   }
 
+  async function changeCover(guide: GuideProduct, file: File) {
+    try {
+      // Converti file in base64
+      const buffer = await file.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const contentType = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+
+      const res = await fetch('/api/admin/upload-cover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug: guide.slug,
+          image_base64: base64,
+          content_type: contentType,
+          ext,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        alert(`Errore upload: ${data.error || 'Sconosciuto'}`);
+        return;
+      }
+
+      const data = await res.json();
+      // Aggiorna anche il DB
+      await fetch('/api/admin/guides', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: guide.id, cover_image: data.url }),
+      });
+
+      // Aggiorna UI
+      setGuides(prev => prev.map(g => g.id === guide.id ? { ...g, cover_image: data.url } : g));
+      alert('Cover aggiornata!');
+    } catch (err) {
+      console.error('Errore cambio cover:', err);
+      alert('Errore durante il cambio cover');
+    }
+  }
+
   async function handlePreviewGuide(pdfPath: string) {
     try {
       const res = await fetch(pdfPath);
@@ -291,6 +333,17 @@ export default function GuideAdminPage() {
 
                     {/* Actions */}
                     <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Cambia Cover */}
+                      <label className="px-3 py-1.5 rounded-lg bg-emerald-900/20 text-xs text-emerald-400 hover:bg-emerald-900/40 transition cursor-pointer">
+                        Cover
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) changeCover(guide, file);
+                            e.target.value = '';
+                          }}
+                        />
+                      </label>
                       {guide.pdf_path && (
                         <button onClick={() => handlePreviewGuide(guide.pdf_path)}
                           className="px-3 py-1.5 rounded-lg bg-cyan-900/20 text-xs text-cyan-400 hover:bg-cyan-900/40 transition">

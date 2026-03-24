@@ -44,6 +44,7 @@ export async function PATCH(request: NextRequest) {
   const updateData: Record<string, unknown> = {};
   if (active !== undefined) updateData.active = active;
   if (category) updateData.category = category;
+  if (body.cover_image) updateData.cover_image = body.cover_image;
 
   const { error } = await supabase
     .from('guide_products')
