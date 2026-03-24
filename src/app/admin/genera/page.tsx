@@ -712,9 +712,16 @@ ${bodyHtml}
                     e.target.value = '';
                   }} className="w-full px-3 py-2 bg-[#0a0a1a] border border-[#1f2937] border-dashed rounded-lg text-gray-500 text-xs mt-2">
                     <option value="">+ Aggiungi esercizio...</option>
-                    {Object.entries(getExercisesByMuscle()).map(([muscle, exercises]) => (
-                      <optgroup key={muscle} label={muscle}>
-                        {exercises.map(ex => (
+                    <optgroup label="--- FOTO ANDREA ---">
+                      {EXERCISE_LIBRARY.filter(e => e.source === 'andrea').map(ex => (
+                        <option key={ex.id} value={ex.id}>{ex.nameIt || ex.name} ({ex.equipment})</option>
+                      ))}
+                    </optgroup>
+                    {Object.entries(getExercisesByMuscle())
+                      .filter(([, exs]) => exs.some(e => e.source === 'github'))
+                      .map(([muscle, exercises]) => (
+                      <optgroup key={muscle} label={`${muscle} (GitHub)`}>
+                        {exercises.filter(e => e.source === 'github').map(ex => (
                           <option key={ex.id} value={ex.id}>{ex.name} ({ex.equipment})</option>
                         ))}
                       </optgroup>
