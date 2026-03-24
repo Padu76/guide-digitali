@@ -50,7 +50,7 @@ export default function GuideFooter() {
 
         <div className="mt-10 pt-6 border-t border-white/5 text-center">
           <p className="text-xs text-gray-600">
-            GuideDigitali -- Soddisfatti o rimborsati entro 30 giorni.
+            GuideDigitali -- Guide digitali premium.
           </p>
         </div>
       </div>

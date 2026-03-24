@@ -108,6 +108,19 @@ export default function GuideAdminPage() {
     }
   }
 
+  async function changeCategory(id: string, newCategory: string) {
+    try {
+      await fetch('/api/admin/guides', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, category: newCategory }),
+      });
+      setGuides(prev => prev.map(g => g.id === id ? { ...g, category: newCategory as GuideProduct['category'] } : g));
+    } catch (err) {
+      console.error('Errore cambio categoria:', err);
+    }
+  }
+
   async function deleteGuide(id: string, title: string) {
     if (!confirm(`Eliminare "${title}"? Azione irreversibile.`)) return;
     try {
@@ -254,9 +267,17 @@ export default function GuideAdminPage() {
                     {/* Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold uppercase ${catConf.bgColor} ${catConf.textColor} ${catConf.borderColor} border`}>
-                          {catConf.label}
-                        </span>
+                        <select
+                          value={guide.category}
+                          onChange={(e) => changeCategory(guide.id, e.target.value)}
+                          className={`text-[10px] px-2 py-0.5 rounded font-semibold uppercase ${catConf.bgColor} ${catConf.textColor} ${catConf.borderColor} border cursor-pointer appearance-none bg-transparent focus:outline-none`}
+                          style={{ paddingRight: '16px', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'8\' height=\'8\' viewBox=\'0 0 8 8\'%3E%3Cpath fill=\'%239ca3af\' d=\'M0 2l4 4 4-4z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
+                        >
+                          <option value="fitness">Fitness & Allenamento</option>
+                          <option value="business">Business & AI Automation</option>
+                          <option value="mindset">Mindset & Produttivita</option>
+                          <option value="biohacking">Biohacking: Benessere & Performance</option>
+                        </select>
                         {!guide.active && <span className="text-[10px] px-2 py-0.5 rounded bg-red-900/20 text-red-400 border border-red-900">Disattivata</span>}
                       </div>
                       <h3 className="text-sm font-semibold text-white truncate">{guide.title}</h3>

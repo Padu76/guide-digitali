@@ -34,15 +34,20 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { id, active } = body;
+  const { id, active, category } = body;
 
   if (!id) {
     return NextResponse.json({ error: 'ID mancante' }, { status: 400 });
   }
 
+  // Costruisci update dinamico
+  const updateData: Record<string, unknown> = {};
+  if (active !== undefined) updateData.active = active;
+  if (category) updateData.category = category;
+
   const { error } = await supabase
     .from('guide_products')
-    .update({ active })
+    .update(updateData)
     .eq('id', id);
 
   if (error) {

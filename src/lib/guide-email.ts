@@ -67,7 +67,7 @@ export async function sendPurchaseEmail(params: {
         Hai bisogno di aiuto? Rispondi a questa email.
       </p>
       <p style="color:#4b5563;font-size:12px;margin:8px 0 0;">
-        Soddisfatti o rimborsati entro 30 giorni.
+        Guide digitali premium.
       </p>
     </div>
 
