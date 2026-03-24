@@ -659,8 +659,43 @@ ${bodyHtml}
           {/* Scheda Allenamento — solo per fitness */}
           {category === 'fitness' && (
             <div className="mb-8 bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl p-6">
-              <h3 className="text-lg font-bold mb-4" style={{ color: cat.color }}>Scheda Allenamento (con le tue foto)</h3>
-              <p className="text-xs text-gray-500 mb-4">Seleziona gli esercizi per ogni programma. Le foto verranno inserite automaticamente nella guida.</p>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold" style={{ color: cat.color }}>Scheda Allenamento (con le tue foto)</h3>
+                <button
+                  onClick={async () => {
+                    if (!title && !prompt) { setError('Inserisci titolo o prompt per auto-compilare'); return; }
+                    setError('');
+                    try {
+                      const btn = document.getElementById('auto-workout-btn');
+                      if (btn) { btn.textContent = 'Compilando...'; (btn as HTMLButtonElement).disabled = true; }
+                      const res = await fetch('/api/admin/generate-guide', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ step: 'auto-workout', title, category, prompt }),
+                      });
+                      const data = await res.json();
+                      if (data.success && data.programs) {
+                        setWorkoutPrograms(data.programs.map((p: { name: string; exercises: WorkoutExercise[] }) => ({
+                          name: p.name,
+                          exercises: p.exercises.filter((e: WorkoutExercise) => EXERCISE_LIBRARY.some(ex => ex.id === e.exerciseId)),
+                        })));
+                      } else {
+                        setError(data.error || 'Errore auto-compilazione');
+                      }
+                    } catch (e) {
+                      setError('Errore: ' + (e instanceof Error ? e.message : 'sconosciuto'));
+                    } finally {
+                      const btn = document.getElementById('auto-workout-btn');
+                      if (btn) { btn.textContent = 'Auto-compila con AI'; (btn as HTMLButtonElement).disabled = false; }
+                    }
+                  }}
+                  id="auto-workout-btn"
+                  className="px-4 py-2 rounded-lg text-xs font-bold transition hover:opacity-80"
+                  style={{ backgroundColor: cat.color, color: 'white' }}>
+                  Auto-compila con AI
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mb-4">Scrivi nel prompt cosa vuoi (es. &quot;scheda 3 giorni upper/lower, manubri&quot;) poi clicca Auto-compila. Oppure seleziona manualmente.</p>
 
               {workoutPrograms.map((prog, pi) => (
                 <div key={pi} className="mb-6">

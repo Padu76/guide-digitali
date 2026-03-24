@@ -2,6 +2,7 @@
 // Genera guida step by step: ogni chiamata fa UN solo step per evitare timeout Vercel
 
 import { NextRequest, NextResponse } from 'next/server';
+import { EXERCISE_LIBRARY } from '@/lib/exercise-library';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || '';
 
@@ -63,6 +64,66 @@ export async function POST(request: NextRequest) {
     const { step, title, category, prompt, chapters = 8, chapterTitles, chapterTitle, chapterNum } = body;
 
     const catContext = CATEGORY_CONTEXT[category] || category;
+
+    // STEP AUTO: GPT sceglie esercizi dalla libreria per compilare la scheda
+    if (step === 'auto-workout') {
+      // Costruisci lista esercizi disponibili per GPT
+      const exerciseList = EXERCISE_LIBRARY.map(ex =>
+        `${ex.id} | ${ex.nameIt || ex.name} | ${ex.muscle} | ${ex.equipment} | ${ex.source === 'andrea' ? 'FOTO ANDREA' : 'foto stock'}`
+      ).join('\n');
+
+      const result = await callGPT([
+        {
+          role: 'system',
+          content: `Sei un personal trainer esperto. Devi creare una scheda di allenamento scegliendo SOLO esercizi dalla lista fornita.
+
+REGOLE:
+- Rispondi SOLO in formato JSON valido, niente altro testo
+- Scegli esercizi SOLO dalla lista (usa gli ID esatti)
+- Preferisci esercizi con "FOTO ANDREA" quando possibile
+- Crea 2-4 programmi (es: Programma A Upper, Programma B Lower, ecc)
+- 5-7 esercizi per programma
+- Serie: 3-4, Ripetizioni: 8-15 (o "30 sec" per isometrici)
+- Aggiungi note brevi di esecuzione dove utile
+
+FORMATO RISPOSTA (JSON):
+{
+  "programs": [
+    {
+      "name": "Programma A — Upper Body",
+      "exercises": [
+        { "exerciseId": "a-pushup", "sets": 3, "reps": "12", "notes": "Schiena dritta, scendi controllato" },
+        { "exerciseId": "g-barbell-row", "sets": 4, "reps": "10" }
+      ]
+    }
+  ]
+}`
+        },
+        {
+          role: 'user',
+          content: `Crea la scheda per questa guida: "${title}"
+
+Richiesta utente: ${prompt || 'Scheda completa per principianti/intermedi'}
+
+ESERCIZI DISPONIBILI (id | nome | muscolo | attrezzo | fonte):
+${exerciseList}
+
+Rispondi SOLO con il JSON.`
+        }
+      ], 3000);
+
+      // Parsa il JSON dalla risposta
+      try {
+        const jsonMatch = result.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return NextResponse.json({ success: true, programs: parsed.programs });
+        }
+        return NextResponse.json({ error: 'Risposta GPT non valida', raw: result }, { status: 500 });
+      } catch {
+        return NextResponse.json({ error: 'JSON non parsabile', raw: result }, { status: 500 });
+      }
+    }
 
     // STEP 1: Genera outline
     if (step === 'outline') {
