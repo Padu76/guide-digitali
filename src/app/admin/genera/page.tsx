@@ -61,8 +61,8 @@ export default function GeneraGuidePage() {
   const [price, setPrice] = useState(9);
   const [shortDesc, setShortDesc] = useState('');
 
-  // Immagini esercizi (per guide fitness)
-  const [exerciseImages, setExerciseImages] = useState<Record<string, string>>({});
+  // Immagini esercizi (per guide fitness) - {nome: {start: url, end: url}}
+  const [exerciseImages, setExerciseImages] = useState<Record<string, { start: string; end?: string }>>({});
 
   useEffect(() => {
     if (document.cookie.includes('guide_admin_auth=authenticated')) setAuthed(true);
@@ -168,9 +168,10 @@ export default function GeneraGuidePage() {
             });
             const exData = await exRes.json();
             if (exData.success && exData.exercises) {
-              const exImgMap: Record<string, string> = {};
+              const exImgMap: Record<string, { start: string; end?: string }> = {};
               for (const [key, val] of Object.entries(exData.exercises)) {
-                exImgMap[key] = (val as { url: string }).url;
+                const v = val as { url: string; url_end?: string };
+                exImgMap[key] = { start: v.url, end: v.url_end };
               }
               setExerciseImages(exImgMap);
             }
@@ -362,13 +363,21 @@ export default function GeneraGuidePage() {
       else if (t === '---') {
         html += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:28px auto;width:40%;">';
       }
-      // Exercise tag: [EXERCISE: nome]
+      // Exercise tag: [EXERCISE: nome] — mostra 2 foto affiancate (start/end)
       else if (t.match(/^\[EXERCISE:\s*(.+?)\]$/i)) {
         const exName = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
-        const exUrl = exerciseImages[exName];
-        if (exUrl) {
-          html += `<div style="margin:16px 0;text-align:center;">
-            <img src="${exUrl}" style="max-width:80%;height:auto;max-height:280px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.08);" alt="${exName}">
+        const exData = exerciseImages[exName];
+        if (exData) {
+          html += `<div style="margin:20px 0;display:flex;gap:12px;justify-content:center;align-items:center;">
+            <div style="flex:1;text-align:center;">
+              <img src="${exData.start}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);" alt="${exName} - inizio">
+              <div style="color:#94a3b8;font-size:9px;margin-top:4px;font-weight:600;">POSIZIONE INIZIALE</div>
+            </div>
+            ${exData.end ? `<div style="flex:0 0 24px;text-align:center;color:${c};font-size:20px;font-weight:800;">→</div>
+            <div style="flex:1;text-align:center;">
+              <img src="${exData.end}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);" alt="${exName} - fine">
+              <div style="color:#94a3b8;font-size:9px;margin-top:4px;font-weight:600;">POSIZIONE FINALE</div>
+            </div>` : ''}
           </div>`;
         }
       }
@@ -510,11 +519,21 @@ ${bodyHtml}
         html += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:20px auto;width:50%;">';
       } else if (t.match(/^\[EXERCISE:\s*(.+?)\]$/i)) {
         const exName = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
-        const exUrl = exerciseImages[exName];
-        if (exUrl) {
-          html += `<div style="margin:16px 0;text-align:center;background:#f8fafc;padding:16px;border-radius:12px;border:1px solid #e2e8f0;">
-            <img src="${exUrl}" style="max-width:70%;height:auto;max-height:280px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" alt="${exName}">
-            <div style="color:${c};font-weight:700;font-size:12px;margin-top:8px;text-transform:uppercase;">${exName}</div>
+        const exData = exerciseImages[exName];
+        if (exData) {
+          html += `<div style="margin:16px 0;background:#f8fafc;padding:16px;border-radius:12px;border:1px solid #e2e8f0;">
+            <div style="display:flex;gap:12px;justify-content:center;align-items:center;">
+              <div style="flex:1;text-align:center;">
+                <img src="${exData.start}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;" alt="${exName} - inizio">
+                <div style="color:#94a3b8;font-size:10px;margin-top:4px;font-weight:600;">INIZIO</div>
+              </div>
+              ${exData.end ? `<div style="flex:0 0 30px;text-align:center;color:${c};font-size:24px;font-weight:800;">→</div>
+              <div style="flex:1;text-align:center;">
+                <img src="${exData.end}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;" alt="${exName} - fine">
+                <div style="color:#94a3b8;font-size:10px;margin-top:4px;font-weight:600;">FINE</div>
+              </div>` : ''}
+            </div>
+            <div style="color:${c};font-weight:700;font-size:13px;margin-top:10px;text-align:center;text-transform:uppercase;">${exName}</div>
           </div>`;
         } else {
           html += `<div style="margin:12px 0;padding:12px;background:#fef3c7;border-radius:8px;border:1px solid #fcd34d;text-align:center;">

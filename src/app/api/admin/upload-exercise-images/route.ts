@@ -11,47 +11,47 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Mappa esercizi -> file foto locale
-const EXERCISE_PHOTOS: Record<string, string> = {
-  'pushup': 'pushup.jpg',
-  'push up': 'pushup.jpg',
-  'panca manubri': 'manubri su panca piana.jpg',
-  'chest press manubri': 'manubri su panca piana.jpg',
-  'distensioni manubri panca': 'manubri su panca piana.jpg',
-  'press manubri': 'press manubri.jpg',
-  'shoulder press': 'press manubri.jpg',
-  'alzate laterali': 'alzate laterali complete.jpg',
-  'curl manubri': 'curl manubri.jpg',
-  'curl hammer': 'curl hammer.jpg',
-  'curl ez': 'curl ez.jpg',
-  'french press': 'french press 1 man.jpg',
-  'squat': 'squat air.jpg',
-  'squat air': 'squat air.jpg',
-  'bodyweight squat': 'squat air.jpg',
-  'affondi': 'affondi overhead .jpg',
-  'lunge': 'affondi overhead .jpg',
-  'squat bulgaro': 'squat bulgaro.jpg',
-  'bulgarian squat': 'squat bulgaro.jpg',
-  'squat jump': 'squat jump.jpg',
-  'jump squat': 'squat jump.jpg',
-  'burpees': 'burpees.jpg',
-  'burpee': 'burpees.jpg',
-  'crunch obliqui': 'crunch obliqui su hyper.jpg',
-  'crunch': 'crunch obliqui su hyper.jpg',
-  'leg raise': 'leg raise alla sbarra.jpg',
-  'leg extension': 'leg extension.jpg',
-  'ab wheel': 'ab wheel.jpg',
-  'plank': 'plank trex.jpg',
-  'dip': 'dip .jpg',
-  'dips': 'dip .jpg',
-  'pushup diamond': 'pushup diamond 1.jpg',
-  'diamond pushup': 'pushup diamond 1.jpg',
-  'mountain climber': 'mountain climber.jpg',
-  'alzate frontali': 'alz frontali manubri.jpg',
-  'alzate frontali manubri': 'alz frontali manubri.jpg',
-  'squeeze press': 'squeeze press .jpg',
-  'croci manubri': 'croci manubri su panca.jpg',
-  'pushdown cavi': 'pushdown ai cavi.jpg',
+// Mappa esercizi -> [foto_start, foto_end] (posizione iniziale e finale)
+const EXERCISE_PHOTOS: Record<string, [string, string]> = {
+  'pushup':                    ['pushup.jpg', 'pushup1.jpg'],
+  'push up':                   ['pushup.jpg', 'pushup1.jpg'],
+  'panca manubri':             ['manubri su panca piana.jpg', 'manubri panca unilat1.jpg'],
+  'chest press manubri':       ['manubri su panca piana.jpg', 'manubri panca unilat1.jpg'],
+  'distensioni manubri panca': ['manubri su panca piana.jpg', 'manubri panca unilat1.jpg'],
+  'press manubri':             ['press manubri.jpg', 'press manubri1.jpg'],
+  'shoulder press':            ['press manubri.jpg', 'press manubri1.jpg'],
+  'alzate laterali':           ['alzate laterali complete.jpg', 'alzate laterali complete 2.jpg'],
+  'curl manubri':              ['curl manubri.jpg', 'curl manubri 2.jpg'],
+  'curl hammer':               ['curl hammer.jpg', 'curl hammer 1.jpg'],
+  'curl ez':                   ['curl ez.jpg', 'curl ez 1.jpg'],
+  'french press':              ['french press bil ez.jpg', 'french press bil ez1.jpg'],
+  'squat':                     ['squat air.jpg', 'squat air1.jpg'],
+  'squat air':                 ['squat air.jpg', 'squat air1.jpg'],
+  'bodyweight squat':          ['squat air.jpg', 'squat air1.jpg'],
+  'affondi':                   ['affondi overhead .jpg', 'affondi overhead1.jpg'],
+  'lunge':                     ['affondi overhead .jpg', 'affondi overhead1.jpg'],
+  'squat bulgaro':             ['squat bulgaro.jpg', 'squat bulgaro2.jpg'],
+  'bulgarian squat':           ['squat bulgaro.jpg', 'squat bulgaro2.jpg'],
+  'squat jump':                ['squat jump.jpg', 'squat jump1.jpg'],
+  'jump squat':                ['squat jump.jpg', 'squat jump1.jpg'],
+  'burpees':                   ['burpees.jpg', 'burpees1.jpg'],
+  'burpee':                    ['burpees.jpg', 'burpees1.jpg'],
+  'crunch obliqui':            ['crunch obliqui su hyper.jpg', 'crunch obliqui su hyper1.jpg'],
+  'crunch':                    ['crunch obliqui su hyper.jpg', 'crunch obliqui su hyper1.jpg'],
+  'leg raise':                 ['leg raise alla sbarra.jpg', 'leg raise alla sbarra2.jpg'],
+  'leg extension':             ['leg extension.jpg', 'leg extension1.jpg'],
+  'ab wheel':                  ['ab wheel.jpg', 'ab wheel 1.jpg'],
+  'plank':                     ['plank trex.jpg', 'plank trex 1.jpg'],
+  'dip':                       ['dip .jpg', 'dip 1.jpg'],
+  'dips':                      ['dip .jpg', 'dip 1.jpg'],
+  'pushup diamond':            ['pushup diamnond.jpg', 'pushup diamond 1.jpg'],
+  'diamond pushup':            ['pushup diamnond.jpg', 'pushup diamond 1.jpg'],
+  'mountain climber':          ['mountain climber.jpg', 'mountain climber3.jpg'],
+  'alzate frontali':           ['alz frontali manubri.jpg', 'alzate frontali man1.jpg'],
+  'alzate frontali manubri':   ['alz frontali manubri.jpg', 'alzate frontali man1.jpg'],
+  'squeeze press':             ['squeeze press .jpg', 'squeeze press1.jpg'],
+  'croci manubri':             ['croci manubri su panca.jpg', 'croci man2.jpg'],
+  'pushdown cavi':             ['pushdown ai cavi.jpg', 'pushdown ai cavi1.jpg'],
 };
 
 // Nomi italiani per la guida
@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     const { exercises } = await request.json();
     // exercises = ['pushup', 'squat', 'plank', ...]
 
-    const results: Record<string, { url: string; name_it: string }> = {};
+    const results: Record<string, { url: string; url_end?: string; name_it: string }> = {};
 
     for (const exercise of exercises) {
       const key = exercise.toLowerCase().trim();
@@ -121,44 +121,47 @@ export async function POST(request: NextRequest) {
       }
 
       const safeKey = key.replace(/\s+/g, '-');
-      const storagePath = `guide-images/exercises/${safeKey}.jpg`;
+      const [startFile, endFile] = filename;
+      const startPath = `guide-images/exercises/${safeKey}-start.jpg`;
+      const endPath = `guide-images/exercises/${safeKey}-end.jpg`;
 
-      // Prova prima a leggere da locale (sviluppo)
-      let uploaded = false;
+      let startUploaded = false;
+      let endUploaded = false;
+
+      // Prova a caricare da locale (sviluppo)
       try {
-        const localPath = path.join(PHOTOS_DIR, filename);
-        if (fs.existsSync(localPath)) {
-          const fileBuffer = fs.readFileSync(localPath);
-          const { error: uploadError } = await supabase.storage
-            .from('guide-pdfs')
-            .upload(storagePath, fileBuffer, {
-              contentType: 'image/jpeg',
-              upsert: true,
-            });
-          if (!uploadError) uploaded = true;
-          else console.error(`Errore upload ${key}:`, uploadError);
+        const localStart = path.join(PHOTOS_DIR, startFile);
+        const localEnd = path.join(PHOTOS_DIR, endFile);
+
+        if (fs.existsSync(localStart)) {
+          const buf = fs.readFileSync(localStart);
+          const { error } = await supabase.storage.from('guide-pdfs').upload(startPath, buf, { contentType: 'image/jpeg', upsert: true });
+          if (!error) startUploaded = true;
+        }
+        if (fs.existsSync(localEnd)) {
+          const buf = fs.readFileSync(localEnd);
+          const { error } = await supabase.storage.from('guide-pdfs').upload(endPath, buf, { contentType: 'image/jpeg', upsert: true });
+          if (!error) endUploaded = true;
         }
       } catch {
-        // Su Vercel fs non ha accesso a E:\, verifica se esiste gia nel bucket
+        // Su Vercel, verifica se esistono gia nel bucket
       }
 
-      // Se non caricato da locale, verifica se esiste gia su Supabase
-      if (!uploaded) {
-        const { data: list } = await supabase.storage
-          .from('guide-pdfs')
-          .list('guide-images/exercises', { search: safeKey });
+      // Se non caricato, verifica se esiste gia su Supabase
+      if (!startUploaded) {
+        const { data: list } = await supabase.storage.from('guide-pdfs').list('guide-images/exercises', { search: `${safeKey}-start` });
         if (!list || list.length === 0) {
-          console.log(`Foto non trovata ne in locale ne su Supabase: ${key}`);
+          console.log(`Foto start non trovata: ${key}`);
           continue;
         }
       }
 
-      const { data: urlData } = supabase.storage
-        .from('guide-pdfs')
-        .getPublicUrl(storagePath);
+      const { data: startUrl } = supabase.storage.from('guide-pdfs').getPublicUrl(startPath);
+      const { data: endUrl } = supabase.storage.from('guide-pdfs').getPublicUrl(endPath);
 
       results[key] = {
-        url: urlData.publicUrl,
+        url: startUrl.publicUrl,
+        url_end: endUrl.publicUrl,
         name_it: EXERCISE_NAMES_IT[key] || exercise,
       };
     }
