@@ -97,6 +97,35 @@ const EXERCISE_NAMES_IT: Record<string, string> = {
   'pushdown cavi': 'Pushdown ai Cavi',
 };
 
+// Mapping ID libreria -> foto [start, end]
+const LIBRARY_PHOTOS: Record<string, [string, string]> = {
+  'pushup': ['pushup.jpg', 'pushup1.jpg'],
+  'pushup-diamond': ['pushup diamnond.jpg', 'pushup diamond 1.jpg'],
+  'panca-manubri': ['manubri su panca piana.jpg', 'manubri su panca unilaterale.jpg'],
+  'croci-manubri': ['croci manubri su panca.jpg', 'croci man2.jpg'],
+  'squeeze-press': ['squeeze press .jpg', 'squeeze press1.jpg'],
+  'press-manubri': ['press manubri.jpg', 'press manubri1.jpg'],
+  'alzate-laterali': ['alzate laterali complete.jpg', 'alzate laterali complete 2.jpg'],
+  'alzate-frontali': ['alz frontali manubri.jpg', 'alzate frontali man1.jpg'],
+  'curl-manubri': ['curl manubri.jpg', 'curl manubri 2.jpg'],
+  'curl-hammer': ['curl hammer.jpg', 'curl hammer 1.jpg'],
+  'curl-ez': ['curl ez.jpg', 'curl ez 1.jpg'],
+  'french-press': ['french press bil ez.jpg', 'french press bil ez1.jpg'],
+  'dip': ['dip .jpg', 'dip 1.jpg'],
+  'pushdown-cavi': ['pushdown ai cavi.jpg', 'pushdown ai cavi1.jpg'],
+  'squat': ['squat air.jpg', 'squat air1.jpg'],
+  'squat-jump': ['squat jump.jpg', 'squat jump1.jpg'],
+  'squat-bulgaro': ['squat bulgaro.jpg', 'squat bulgaro2.jpg'],
+  'affondi': ['affondi overhead .jpg', 'affondi overhead1.jpg'],
+  'leg-extension': ['leg extension.jpg', 'leg extension1.jpg'],
+  'crunch': ['crunch obliqui su hyper.jpg', 'crunch obliqui su hyper1.jpg'],
+  'leg-raise': ['leg raise alla sbarra.jpg', 'leg raise alla sbarra2.jpg'],
+  'ab-wheel': ['ab wheel.jpg', 'ab wheel 1.jpg'],
+  'plank': ['plank trex.jpg', 'plank trex 1.jpg'],
+  'mountain-climber': ['mountain climber.jpg', 'mountain climber3.jpg'],
+  'burpees': ['burpees.jpg', 'burpees1.jpg'],
+};
+
 const PHOTOS_DIR = 'E:\\foto esercizi Andrea';
 
 export async function POST(request: NextRequest) {
@@ -113,7 +142,8 @@ export async function POST(request: NextRequest) {
 
     for (const exercise of exercises) {
       const key = exercise.toLowerCase().trim();
-      const filename = EXERCISE_PHOTOS[key];
+      // Cerca prima in LIBRARY_PHOTOS (per ID), poi in EXERCISE_PHOTOS (per nome)
+      const filename = LIBRARY_PHOTOS[key] || EXERCISE_PHOTOS[key];
 
       if (!filename) {
         console.log(`Esercizio non mappato: ${key}`);

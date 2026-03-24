@@ -5,6 +5,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { GuideCategory } from '@/lib/guide-types';
+import { EXERCISE_LIBRARY, getExercisesByMuscle, WorkoutProgram, WorkoutExercise, workoutProgramHtml } from '@/lib/exercise-library';
+import type { Exercise } from '@/lib/exercise-library';
 
 const CATEGORIES: Record<GuideCategory, { label: string; color: string; placeholder: string }> = {
   fitness: {
@@ -63,6 +65,12 @@ export default function GeneraGuidePage() {
 
   // Immagini esercizi (per guide fitness) - {nome: {start: url, end: url}}
   const [exerciseImages, setExerciseImages] = useState<Record<string, { start: string; end?: string }>>({});
+
+  // Scheda allenamento (solo per fitness)
+  const [workoutPrograms, setWorkoutPrograms] = useState<WorkoutProgram[]>([
+    { name: 'Programma A — Upper Body + Core', exercises: [] },
+    { name: 'Programma B — Lower Body + Core', exercises: [] },
+  ]);
 
   useEffect(() => {
     if (document.cookie.includes('guide_admin_auth=authenticated')) setAuthed(true);
@@ -154,17 +162,22 @@ export default function GeneraGuidePage() {
         }
       }
 
-      // 6. Upload immagini esercizi (per guide fitness)
-      if (category === 'fitness') {
-        const exerciseMatches = fullMarkdown.match(/\[EXERCISE:\s*(.+?)\]/gi) || [];
-        const exerciseNames = Array.from(new Set(exerciseMatches.map(m => m.match(/\[EXERCISE:\s*(.+?)\]/i)?.[1]?.toLowerCase().trim() || '').filter(Boolean)));
-        if (exerciseNames.length > 0) {
-          setProgress(`Caricamento ${exerciseNames.length} foto esercizi...`);
+      // 6. Upload foto esercizi e genera pagine scheda (per guide fitness)
+      if (category === 'fitness' && workoutPrograms.some(p => p.exercises.length > 0)) {
+        // Raccogli tutti gli exercise ID unici
+        const allExIds = Array.from(new Set(workoutPrograms.flatMap(p => p.exercises.map(e => e.exerciseId))));
+        const exNames = allExIds.map(id => {
+          const ex = EXERCISE_LIBRARY.find(e => e.id === id);
+          return ex ? id : '';
+        }).filter(Boolean);
+
+        if (exNames.length > 0) {
+          setProgress(`Caricamento ${exNames.length} foto esercizi...`);
           try {
             const exRes = await fetch('/api/admin/upload-exercise-images', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ exercises: exerciseNames }),
+              body: JSON.stringify({ exercises: exNames }),
             });
             const exData = await exRes.json();
             if (exData.success && exData.exercises) {
@@ -179,6 +192,21 @@ export default function GeneraGuidePage() {
             console.error('Errore upload esercizi:', e);
           }
         }
+
+        // Inserisci le schede nel markdown dopo il capitolo che parla di programmi
+        const workoutMd = workoutPrograms.map(prog => {
+          let md = `\n\n## ${prog.name}\n\n`;
+          for (const we of prog.exercises) {
+            const ex = EXERCISE_LIBRARY.find(e => e.id === we.exerciseId);
+            if (!ex) continue;
+            md += `[EXERCISE: ${ex.id}]\n`;
+            md += `**${ex.name}** — ${we.sets} x ${we.reps}\n`;
+            md += `_${ex.muscle} | ${ex.equipment}_\n\n`;
+          }
+          return md;
+        }).join('');
+
+        fullMarkdown += workoutMd;
       }
 
       const wordCount = fullMarkdown.split(/\s+/).length;
@@ -363,19 +391,19 @@ export default function GeneraGuidePage() {
       else if (t === '---') {
         html += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:28px auto;width:40%;">';
       }
-      // Exercise tag: [EXERCISE: nome] — mostra 2 foto affiancate (start/end)
+      // Exercise tag: [EXERCISE: id] — mostra 2 foto affiancate (start/end)
       else if (t.match(/^\[EXERCISE:\s*(.+?)\]$/i)) {
-        const exName = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
-        const exData = exerciseImages[exName];
+        const exKey = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
+        const exData = exerciseImages[exKey];
         if (exData) {
           html += `<div style="margin:20px 0;display:flex;gap:12px;justify-content:center;align-items:center;">
             <div style="flex:1;text-align:center;">
-              <img src="${exData.start}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);" alt="${exName} - inizio">
+              <img src="${exData.start}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);" alt="${exKey} - inizio">
               <div style="color:#94a3b8;font-size:9px;margin-top:4px;font-weight:600;">POSIZIONE INIZIALE</div>
             </div>
             ${exData.end ? `<div style="flex:0 0 24px;text-align:center;color:${c};font-size:20px;font-weight:800;">→</div>
             <div style="flex:1;text-align:center;">
-              <img src="${exData.end}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);" alt="${exName} - fine">
+              <img src="${exData.end}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.08);" alt="${exKey} - fine">
               <div style="color:#94a3b8;font-size:9px;margin-top:4px;font-weight:600;">POSIZIONE FINALE</div>
             </div>` : ''}
           </div>`;
@@ -518,26 +546,26 @@ ${bodyHtml}
       } else if (t === '---') {
         html += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:20px auto;width:50%;">';
       } else if (t.match(/^\[EXERCISE:\s*(.+?)\]$/i)) {
-        const exName = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
-        const exData = exerciseImages[exName];
+        const exKey2 = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
+        const exData = exerciseImages[exKey2];
         if (exData) {
           html += `<div style="margin:16px 0;background:#f8fafc;padding:16px;border-radius:12px;border:1px solid #e2e8f0;">
             <div style="display:flex;gap:12px;justify-content:center;align-items:center;">
               <div style="flex:1;text-align:center;">
-                <img src="${exData.start}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;" alt="${exName} - inizio">
+                <img src="${exData.start}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;" alt="${exKey2} - inizio">
                 <div style="color:#94a3b8;font-size:10px;margin-top:4px;font-weight:600;">INIZIO</div>
               </div>
               ${exData.end ? `<div style="flex:0 0 30px;text-align:center;color:${c};font-size:24px;font-weight:800;">→</div>
               <div style="flex:1;text-align:center;">
-                <img src="${exData.end}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;" alt="${exName} - fine">
+                <img src="${exData.end}" style="width:100%;max-height:240px;object-fit:contain;border-radius:8px;" alt="${exKey2} - fine">
                 <div style="color:#94a3b8;font-size:10px;margin-top:4px;font-weight:600;">FINE</div>
               </div>` : ''}
             </div>
-            <div style="color:${c};font-weight:700;font-size:13px;margin-top:10px;text-align:center;text-transform:uppercase;">${exName}</div>
+            <div style="color:${c};font-weight:700;font-size:13px;margin-top:10px;text-align:center;text-transform:uppercase;">${exKey2}</div>
           </div>`;
         } else {
           html += `<div style="margin:12px 0;padding:12px;background:#fef3c7;border-radius:8px;border:1px solid #fcd34d;text-align:center;">
-            <span style="color:#92400e;font-size:12px;">Foto mancante: ${exName}</span>
+            <span style="color:#92400e;font-size:12px;">Foto mancante: ${exKey2}</span>
           </div>`;
         }
       } else {
@@ -627,6 +655,78 @@ ${bodyHtml}
                 className="w-full px-3 py-2 bg-[#0a0a1a] border border-[#1a1a2e] rounded-lg text-white text-sm" />
             </div>
           </div>
+
+          {/* Scheda Allenamento — solo per fitness */}
+          {category === 'fitness' && (
+            <div className="mb-8 bg-[#0a0a1a] border border-[#1a1a2e] rounded-xl p-6">
+              <h3 className="text-lg font-bold mb-4" style={{ color: cat.color }}>Scheda Allenamento (con le tue foto)</h3>
+              <p className="text-xs text-gray-500 mb-4">Seleziona gli esercizi per ogni programma. Le foto verranno inserite automaticamente nella guida.</p>
+
+              {workoutPrograms.map((prog, pi) => (
+                <div key={pi} className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <input value={prog.name} onChange={e => {
+                      const p = [...workoutPrograms];
+                      p[pi] = { ...p[pi], name: e.target.value };
+                      setWorkoutPrograms(p);
+                    }} className="flex-1 px-3 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-sm font-semibold" />
+                    {workoutPrograms.length > 1 && (
+                      <button onClick={() => setWorkoutPrograms(workoutPrograms.filter((_, i) => i !== pi))}
+                        className="text-red-400 text-xs hover:text-red-300">Rimuovi</button>
+                    )}
+                  </div>
+
+                  {/* Esercizi nel programma */}
+                  {prog.exercises.map((we, ei) => {
+                    const ex = EXERCISE_LIBRARY.find(e => e.id === we.exerciseId);
+                    return (
+                      <div key={ei} className="flex items-center gap-2 mb-2 bg-[#111827] rounded-lg p-2">
+                        <span className="text-white text-sm flex-1">{ex?.name || we.exerciseId}</span>
+                        <span className="text-gray-500 text-xs">{ex?.muscle}</span>
+                        <input type="number" value={we.sets} onChange={e => {
+                          const p = [...workoutPrograms];
+                          p[pi].exercises[ei] = { ...we, sets: parseInt(e.target.value) || 3 };
+                          setWorkoutPrograms(p);
+                        }} className="w-12 px-2 py-1 bg-[#0a0a1a] border border-[#1f2937] rounded text-white text-xs text-center" title="Serie" />
+                        <span className="text-gray-600 text-xs">x</span>
+                        <input value={we.reps} onChange={e => {
+                          const p = [...workoutPrograms];
+                          p[pi].exercises[ei] = { ...we, reps: e.target.value };
+                          setWorkoutPrograms(p);
+                        }} className="w-16 px-2 py-1 bg-[#0a0a1a] border border-[#1f2937] rounded text-white text-xs text-center" placeholder="12" title="Reps" />
+                        <button onClick={() => {
+                          const p = [...workoutPrograms];
+                          p[pi].exercises = p[pi].exercises.filter((_, i) => i !== ei);
+                          setWorkoutPrograms(p);
+                        }} className="text-red-400 text-xs hover:text-red-300 px-1">✕</button>
+                      </div>
+                    );
+                  })}
+
+                  {/* Aggiungi esercizio */}
+                  <select onChange={e => {
+                    if (!e.target.value) return;
+                    const p = [...workoutPrograms];
+                    p[pi].exercises.push({ exerciseId: e.target.value, sets: 3, reps: '12' });
+                    setWorkoutPrograms(p);
+                    e.target.value = '';
+                  }} className="w-full px-3 py-2 bg-[#0a0a1a] border border-[#1f2937] border-dashed rounded-lg text-gray-500 text-xs mt-2">
+                    <option value="">+ Aggiungi esercizio...</option>
+                    {Object.entries(getExercisesByMuscle()).map(([muscle, exercises]) => (
+                      <optgroup key={muscle} label={muscle}>
+                        {exercises.map(ex => (
+                          <option key={ex.id} value={ex.id}>{ex.name} ({ex.equipment})</option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+              ))}
+
+              <button onClick={() => setWorkoutPrograms([...workoutPrograms, { name: `Programma ${String.fromCharCode(65 + workoutPrograms.length)}`, exercises: [] }])}
+                className="text-xs text-cyan-400 hover:text-cyan-300 mt-2">+ Aggiungi programma</button>
+            </div>
+          )}
 
           {error && <p className="text-red-400 text-sm mb-4 text-center">{error}</p>}
 
