@@ -59,9 +59,12 @@ export async function POST(request: NextRequest) {
         .eq('id', guideId);
     }
 
+    // Aggiungi timestamp per evitare cache browser
+    const urlWithCache = `${publicUrl}?t=${Date.now()}`;
+
     return NextResponse.json({
       success: true,
-      url: publicUrl,
+      url: urlWithCache,
     });
   } catch (err) {
     console.error('Errore upload cover:', err);
