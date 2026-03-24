@@ -61,6 +61,9 @@ export default function GeneraGuidePage() {
   const [price, setPrice] = useState(9);
   const [shortDesc, setShortDesc] = useState('');
 
+  // Immagini esercizi (per guide fitness)
+  const [exerciseImages, setExerciseImages] = useState<Record<string, string>>({});
+
   useEffect(() => {
     if (document.cookie.includes('guide_admin_auth=authenticated')) setAuthed(true);
   }, []);
@@ -147,6 +150,32 @@ export default function GeneraGuidePage() {
             }
           } catch (e) {
             console.error('Errore salvataggio immagini:', e);
+          }
+        }
+      }
+
+      // 6. Upload immagini esercizi (per guide fitness)
+      if (category === 'fitness') {
+        const exerciseMatches = fullMarkdown.match(/\[EXERCISE:\s*(.+?)\]/gi) || [];
+        const exerciseNames = Array.from(new Set(exerciseMatches.map(m => m.match(/\[EXERCISE:\s*(.+?)\]/i)?.[1]?.toLowerCase().trim() || '').filter(Boolean)));
+        if (exerciseNames.length > 0) {
+          setProgress(`Caricamento ${exerciseNames.length} foto esercizi...`);
+          try {
+            const exRes = await fetch('/api/admin/upload-exercise-images', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ exercises: exerciseNames }),
+            });
+            const exData = await exRes.json();
+            if (exData.success && exData.exercises) {
+              const exImgMap: Record<string, string> = {};
+              for (const [key, val] of Object.entries(exData.exercises)) {
+                exImgMap[key] = (val as { url: string }).url;
+              }
+              setExerciseImages(exImgMap);
+            }
+          } catch (e) {
+            console.error('Errore upload esercizi:', e);
           }
         }
       }
@@ -333,6 +362,16 @@ export default function GeneraGuidePage() {
       else if (t === '---') {
         html += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:28px auto;width:40%;">';
       }
+      // Exercise tag: [EXERCISE: nome]
+      else if (t.match(/^\[EXERCISE:\s*(.+?)\]$/i)) {
+        const exName = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
+        const exUrl = exerciseImages[exName];
+        if (exUrl) {
+          html += `<div style="margin:16px 0;text-align:center;">
+            <img src="${exUrl}" style="max-width:80%;height:auto;max-height:280px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,0.08);" alt="${exName}">
+          </div>`;
+        }
+      }
       // Paragraph
       else {
         html += `<p style="color:#334155;font-size:12px;line-height:1.85;margin:7px 0;text-align:justify;">${renderInline(t)}</p>`;
@@ -469,6 +508,19 @@ ${bodyHtml}
         html += `<div style="display:flex;margin:4px 0 4px 12px;"><span style="color:${c};margin-right:8px;font-weight:700;min-width:20px;">${num}.</span><span style="color:#334155;font-size:13px;line-height:1.6;">${formatInline(txt)}</span></div>`;
       } else if (t === '---') {
         html += '<hr style="border:none;border-top:1px solid #e2e8f0;margin:20px auto;width:50%;">';
+      } else if (t.match(/^\[EXERCISE:\s*(.+?)\]$/i)) {
+        const exName = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
+        const exUrl = exerciseImages[exName];
+        if (exUrl) {
+          html += `<div style="margin:16px 0;text-align:center;background:#f8fafc;padding:16px;border-radius:12px;border:1px solid #e2e8f0;">
+            <img src="${exUrl}" style="max-width:70%;height:auto;max-height:280px;border-radius:8px;box-shadow:0 2px 8px rgba(0,0,0,0.1);" alt="${exName}">
+            <div style="color:${c};font-weight:700;font-size:12px;margin-top:8px;text-transform:uppercase;">${exName}</div>
+          </div>`;
+        } else {
+          html += `<div style="margin:12px 0;padding:12px;background:#fef3c7;border-radius:8px;border:1px solid #fcd34d;text-align:center;">
+            <span style="color:#92400e;font-size:12px;">Foto mancante: ${exName}</span>
+          </div>`;
+        }
       } else {
         html += `<p style="color:#334155;font-size:13px;line-height:1.8;margin:5px 0;">${formatInline(t)}</p>`;
       }

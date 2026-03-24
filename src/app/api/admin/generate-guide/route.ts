@@ -86,6 +86,26 @@ export async function POST(request: NextRequest) {
 
     // STEP 3: Genera singolo capitolo
     if (step === 'chapter') {
+      // Istruzioni aggiuntive per guide fitness con esercizi
+      const exerciseInstructions = category === 'fitness' ? `
+
+REGOLE SPECIALI PER GUIDE FITNESS:
+- Quando descrivi un esercizio, INSERISCI il tag [EXERCISE: nome] su una riga separata
+- Esercizi disponibili con foto: pushup, panca manubri, press manubri, alzate laterali, curl manubri, curl hammer, curl ez, french press, squat, affondi, squat bulgaro, squat jump, burpees, crunch obliqui, crunch, leg raise, leg extension, ab wheel, plank, dip, pushup diamond, mountain climber, alzate frontali, squeeze press, croci manubri
+- Usa SOLO questi nomi esatti nel tag [EXERCISE: nome]
+- Dopo il tag, aggiungi: serie x ripetizioni, e una breve descrizione dell'esecuzione corretta
+- NON usare macchine (leg press, lat machine, chest press machine, leg curl machine). Usa SOLO manubri e corpo libero.
+- Esempio formato:
+
+[EXERCISE: squat]
+**Squat a Corpo Libero** — 3 x 12 ripetizioni
+Piedi larghezza spalle, scendi fino a cosce parallele al pavimento. Schiena dritta, peso sui talloni.
+
+[EXERCISE: pushup]
+**Push Up** — 3 x 10 ripetizioni
+Mani larghezza spalle, corpo in linea retta. Scendi fino a sfiorare il pavimento con il petto.
+` : '';
+
       const result = await callGPT([
         {
           role: 'system',
@@ -104,9 +124,9 @@ REGOLE:
 - NO emoji. Tono autorevole e pratico.
 - Ogni frase deve aggiungere valore. ZERO filler.
 - Quando menzioni strumenti AI, varia: cita ChatGPT, Claude, Gemini, Perplexity, strumenti specifici di settore. NON focalizzarti su un solo tool.
-- Sii specifico con numeri, percentuali, tempi reali.`
+- Sii specifico con numeri, percentuali, tempi reali.${exerciseInstructions}`
         },
-        { role: 'user', content: `Capitolo ${chapterNum} della guida "${title}".\nTitolo: "${chapterTitle}"\nCategoria: ${catContext}\n\nScrivi COMPLETO. MINIMO 1500 parole. Inizia con ## ${chapterTitle}` }
+        { role: 'user', content: `Capitolo ${chapterNum} della guida "${title}".\nTitolo: "${chapterTitle}"\nCategoria: ${catContext}\n${prompt ? `Note aggiuntive: ${prompt}` : ''}\n\nScrivi COMPLETO. MINIMO 1500 parole. Inizia con ## ${chapterTitle}` }
       ], 4096);
       return NextResponse.json({ success: true, content: result });
     }
