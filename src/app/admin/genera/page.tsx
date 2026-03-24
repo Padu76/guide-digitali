@@ -63,8 +63,29 @@ export default function GeneraGuidePage() {
   const [price, setPrice] = useState(9);
   const [shortDesc, setShortDesc] = useState('');
 
-  // Immagini esercizi (per guide fitness) - {nome: {start: url, end: url}}
+  // Immagini esercizi (per guide fitness) - {id: {start: url, end: url}}
   const [exerciseImages, setExerciseImages] = useState<Record<string, { start: string; end?: string }>>({});
+
+  // Cerca immagine esercizio per ID, nome, o nome italiano (fuzzy match)
+  function findExerciseImage(key: string): { start: string; end?: string } | null {
+    const k = key.toLowerCase().trim();
+    // Match diretto per ID
+    if (exerciseImages[k]) return exerciseImages[k];
+    // Cerca per ID con prefisso a- o g-
+    if (exerciseImages[`a-${k}`]) return exerciseImages[`a-${k}`];
+    if (exerciseImages[`g-${k}`]) return exerciseImages[`g-${k}`];
+    // Cerca per nome nella libreria
+    const ex = EXERCISE_LIBRARY.find(e =>
+      e.id.toLowerCase() === k ||
+      e.name.toLowerCase() === k ||
+      (e.nameIt && e.nameIt.toLowerCase() === k) ||
+      e.id.replace(/^[ag]-/, '') === k ||
+      e.name.toLowerCase().includes(k) ||
+      (e.nameIt && e.nameIt.toLowerCase().includes(k))
+    );
+    if (ex && exerciseImages[ex.id]) return exerciseImages[ex.id];
+    return null;
+  }
 
   // Scheda allenamento (solo per fitness)
   const [workoutPrograms, setWorkoutPrograms] = useState<WorkoutProgram[]>([
@@ -163,13 +184,23 @@ export default function GeneraGuidePage() {
       }
 
       // 6. Upload foto esercizi e genera pagine scheda (per guide fitness)
-      if (category === 'fitness' && workoutPrograms.some(p => p.exercises.length > 0)) {
-        // Raccogli tutti gli exercise ID unici
-        const allExIds = Array.from(new Set(workoutPrograms.flatMap(p => p.exercises.map(e => e.exerciseId))));
-        const exNames = allExIds.map(id => {
-          const ex = EXERCISE_LIBRARY.find(e => e.id === id);
-          return ex ? id : '';
+      if (category === 'fitness') {
+        // Raccogli ID dalla scheda + nomi dai tag [EXERCISE:] nel markdown
+        const schemaIds = workoutPrograms.flatMap(p => p.exercises.map(e => e.exerciseId));
+        const markdownMatches = fullMarkdown.match(/\[EXERCISE:\s*(.+?)\]/gi) || [];
+        const markdownNames = markdownMatches.map(m => {
+          const name = m.match(/\[EXERCISE:\s*(.+?)\]/i)?.[1]?.toLowerCase().trim() || '';
+          // Risolvi nome -> ID
+          const ex = EXERCISE_LIBRARY.find(e =>
+            e.id === name || e.id === `a-${name}` || e.id === `g-${name}` ||
+            e.name.toLowerCase() === name ||
+            (e.nameIt && e.nameIt.toLowerCase() === name) ||
+            e.name.toLowerCase().includes(name)
+          );
+          return ex ? ex.id : '';
         }).filter(Boolean);
+        const allExIds = Array.from(new Set([...schemaIds, ...markdownNames]));
+        const exNames = allExIds.filter(id => EXERCISE_LIBRARY.some(e => e.id === id));
 
         if (exNames.length > 0) {
           setProgress(`Caricamento ${exNames.length} foto esercizi...`);
@@ -394,7 +425,7 @@ export default function GeneraGuidePage() {
       // Exercise tag: [EXERCISE: id] — mostra 2 foto affiancate (start/end)
       else if (t.match(/^\[EXERCISE:\s*(.+?)\]$/i)) {
         const exKey = t.match(/^\[EXERCISE:\s*(.+?)\]$/i)?.[1]?.toLowerCase().trim() || '';
-        const exData = exerciseImages[exKey];
+        const exData = findExerciseImage(exKey);
         if (exData) {
           html += `<div style="margin:20px 0;display:flex;gap:12px;justify-content:center;align-items:center;">
             <div style="flex:1;text-align:center;">
