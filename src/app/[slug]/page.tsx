@@ -214,11 +214,6 @@ export default function GuideDetailPage() {
               </div>
             </div>
 
-            <div className="mt-4 p-3 rounded-lg bg-violet-500/5 border border-violet-500/10 text-center">
-              <p className="text-xs text-violet-400">
-                Acquista 2 o piu guide e risparmia il 20% automaticamente
-              </p>
-            </div>
           </div>
         </div>
 

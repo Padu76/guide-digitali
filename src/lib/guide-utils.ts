@@ -59,11 +59,8 @@ export const CATEGORY_CONFIG: Record<GuideCategory, {
 // Tutte le categorie in ordine
 export const ALL_CATEGORIES: GuideCategory[] = ['fitness', 'business', 'mindset', 'biohacking'];
 
-// Calcola prezzo bundle (-20% per 2+ guide)
+// Bundle discount disabilitato
 export function calculateBundleDiscount(itemCount: number, subtotal: number): number {
-  if (itemCount >= 2) {
-    return Math.round(subtotal * 0.20 * 100) / 100;
-  }
   return 0;
 }
 

@@ -70,9 +70,6 @@ export default function GuideStorePage() {
             Scarica subito dopo il pagamento.
           </p>
 
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-500/5 border border-violet-500/10">
-            <span className="text-xs text-violet-400">Acquista 2+ guide e risparmia il 20%</span>
-          </div>
         </div>
       </section>
 
