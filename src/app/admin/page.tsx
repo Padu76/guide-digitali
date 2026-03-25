@@ -302,7 +302,7 @@ export default function GuideAdminPage() {
                           style={{ paddingRight: '16px', backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'8\' height=\'8\' viewBox=\'0 0 8 8\'%3E%3Cpath fill=\'%239ca3af\' d=\'M0 2l4 4 4-4z\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 4px center' }}
                         >
                           <option value="fitness">Fitness & Allenamento</option>
-                          <option value="business">Business & AI Automation</option>
+                          <option value="business">Business & AI</option>
                           <option value="mindset">Mindset & Produttivita</option>
                           <option value="biohacking">Biohacking: Benessere & Performance</option>
                         </select>

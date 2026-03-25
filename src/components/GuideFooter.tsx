@@ -23,7 +23,7 @@ export default function GuideFooter() {
             <h3 className="text-sm font-semibold text-gray-300 mb-4">Categorie</h3>
             <ul className="space-y-2 text-sm text-gray-500">
               <li><span className="text-cyan-400/70">Fitness & Allenamento</span></li>
-              <li><span className="text-violet-400/70">Business & AI Automation</span></li>
+              <li><span className="text-violet-400/70">Business & AI</span></li>
               <li><span className="text-amber-400/70">Mindset & Produttivita</span></li>
               <li><span className="text-emerald-400/70">Biohacking: Benessere & Performance</span></li>
             </ul>

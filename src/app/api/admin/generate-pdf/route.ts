@@ -21,7 +21,7 @@ const CATEGORY_COLORS: Record<GuideCategory, { primary: string; accent: string }
 
 const CATEGORY_LABELS: Record<GuideCategory, string> = {
   fitness: 'Fitness & Allenamento',
-  business: 'AI & Automazione',
+  business: 'Business & AI',
   mindset: 'Mindset & Produttivita',
   biohacking: 'Benessere & Performance',
 };

@@ -15,7 +15,7 @@ const CATEGORIES: Record<GuideCategory, { label: string; color: string; placehol
     placeholder: 'Es: Programma corpo libero 4 settimane, focus su forza e resistenza, con schede giornaliere',
   },
   business: {
-    label: 'AI & Automazione',
+    label: 'Business & AI',
     color: '#8b5cf6',
     placeholder: 'Es: 50 prompt ChatGPT per freelancer, divisi per area (marketing, vendite, contenuti)',
   },

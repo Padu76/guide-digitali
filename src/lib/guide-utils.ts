@@ -25,7 +25,7 @@ export const CATEGORY_CONFIG: Record<GuideCategory, {
     textColor: 'text-cyan-400',
   },
   business: {
-    label: 'Business & AI Automation',
+    label: 'Business & AI',
     color: 'violet',
     bgColor: 'bg-violet-500/10',
     borderColor: 'border-violet-500/30',
