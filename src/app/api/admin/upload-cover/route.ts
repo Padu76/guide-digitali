@@ -51,16 +51,16 @@ export async function POST(request: NextRequest) {
 
     const publicUrl = urlData.publicUrl;
 
-    // Aggiorna il DB se abbiamo l'ID
+    // Aggiungi timestamp per evitare cache CDN
+    const urlWithCache = `${publicUrl}?v=${Date.now()}`;
+
+    // Aggiorna il DB con cache-buster
     if (guideId) {
       await supabase
         .from('guide_products')
-        .update({ cover_image: publicUrl })
+        .update({ cover_image: urlWithCache })
         .eq('id', guideId);
     }
-
-    // Aggiungi timestamp per evitare cache browser
-    const urlWithCache = `${publicUrl}?t=${Date.now()}`;
 
     return NextResponse.json({
       success: true,
