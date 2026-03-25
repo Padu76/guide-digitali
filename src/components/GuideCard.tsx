@@ -29,6 +29,10 @@ export default function GuideCard({ product }: GuideCardProps) {
             <img
               src={product.cover_image}
               alt={product.title}
+              loading="lazy"
+              decoding="async"
+              width={400}
+              height={533}
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (

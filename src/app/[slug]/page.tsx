@@ -120,6 +120,8 @@ export default function GuideDetailPage() {
                   <img
                     src={product.cover_image}
                     alt={product.title}
+                    loading="eager"
+                    decoding="async"
                     className="w-full h-full object-cover"
                   />
                 ) : (
