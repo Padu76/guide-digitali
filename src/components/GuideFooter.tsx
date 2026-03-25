@@ -21,11 +21,11 @@ export default function GuideFooter() {
 
           <div>
             <h3 className="text-sm font-semibold text-gray-300 mb-4">Categorie</h3>
-            <ul className="space-y-2 text-sm text-gray-500">
-              <li><span className="text-cyan-400/70">Fitness & Allenamento</span></li>
-              <li><span className="text-violet-400/70">Business & AI</span></li>
-              <li><span className="text-amber-400/70">Mindset & Produttivita</span></li>
-              <li><span className="text-emerald-400/70">Biohacking: Benessere & Performance</span></li>
+            <ul className="space-y-2 text-sm">
+              <li><a href="/?cat=fitness" className="text-cyan-400/70 hover:text-cyan-400 transition-colors">Fitness & Allenamento</a></li>
+              <li><a href="/?cat=business" className="text-violet-400/70 hover:text-violet-400 transition-colors">Business & AI</a></li>
+              <li><a href="/?cat=mindset" className="text-amber-400/70 hover:text-amber-400 transition-colors">Mindset & Produttivita</a></li>
+              <li><a href="/?cat=biohacking" className="text-emerald-400/70 hover:text-emerald-400 transition-colors">Biohacking: Benessere & Performance</a></li>
             </ul>
           </div>
 

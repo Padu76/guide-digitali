@@ -4,6 +4,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { GuideProduct, GuideCategory } from '@/lib/guide-types';
 import GuideHeader from '@/components/GuideHeader';
 import GuideFooter from '@/components/GuideFooter';
@@ -15,10 +16,16 @@ export default function GuideStorePage() {
   const [products, setProducts] = useState<GuideProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<GuideCategory | null>(null);
+  const searchParams = useSearchParams();
 
   useEffect(() => {
+    // Leggi categoria da URL (?cat=fitness)
+    const catParam = searchParams.get('cat') as GuideCategory | null;
+    if (catParam && ['fitness', 'business', 'mindset', 'biohacking'].includes(catParam)) {
+      setSelectedCategory(catParam);
+    }
     fetchProducts();
-  }, []);
+  }, [searchParams]);
 
   async function fetchProducts() {
     try {
