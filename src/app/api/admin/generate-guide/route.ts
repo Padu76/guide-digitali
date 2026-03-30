@@ -27,12 +27,14 @@ async function callGPT(messages: Array<{ role: string; content: string }>, maxTo
   return data.choices[0]?.message?.content || '';
 }
 
-async function generateImage(chapterTitle: string, category: string): Promise<string> {
+const LEONARDO_API_KEY = process.env.LEONARDO_API_KEY || '';
+
+async function generateImageDalle(chapterTitle: string, category: string): Promise<string> {
   const styleMap: Record<string, string> = {
-    fitness: 'clean modern fitness illustration, cyan and teal accents, white background, minimalist',
-    business: 'futuristic tech business illustration, purple and violet accents, white background, digital',
-    mindset: 'zen productivity illustration, amber and gold accents, white background, calm',
-    biohacking: 'wellness biohacking illustration, rose and pink accents, white background, scientific',
+    fitness: 'clean modern fitness photo, gym environment, natural lighting, professional',
+    business: 'modern office workspace, technology, clean desk setup, professional photography',
+    mindset: 'calm productive environment, morning light, minimalist workspace, peaceful',
+    biohacking: 'wellness lifestyle, morning routine, healthy living, natural light, modern',
   };
   try {
     const res = await fetch('https://api.openai.com/v1/images/generations', {
@@ -40,7 +42,7 @@ async function generateImage(chapterTitle: string, category: string): Promise<st
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
       body: JSON.stringify({
         model: 'dall-e-3',
-        prompt: `${styleMap[category] || 'professional illustration'}, concept for: ${chapterTitle}. Abstract, elegant, no faces, no text. Clean style.`,
+        prompt: `${styleMap[category] || 'professional photography'}, concept for: ${chapterTitle}. Realistic, elegant, no text, no words, no letters. High quality editorial photo.`,
         n: 1, size: '1792x1024', quality: 'standard',
       }),
     });
@@ -48,6 +50,81 @@ async function generateImage(chapterTitle: string, category: string): Promise<st
     const data = await res.json();
     return data.data?.[0]?.url || '';
   } catch { return ''; }
+}
+
+async function generateImageLeonardo(chapterTitle: string, category: string): Promise<string> {
+  const styleMap: Record<string, string> = {
+    fitness: 'fitness lifestyle photography, gym, workout, athletic person, natural lighting',
+    business: 'modern business workspace, laptop, productivity, professional environment',
+    mindset: 'calm morning routine, journaling, meditation, peaceful environment, golden hour',
+    biohacking: 'wellness and health lifestyle, supplements, morning routine, cold plunge, biohacking setup',
+  };
+
+  try {
+    // Step 1: Crea la generazione
+    const createRes = await fetch('https://cloud.leonardo.ai/api/rest/v1/generations', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${LEONARDO_API_KEY}`,
+      },
+      body: JSON.stringify({
+        prompt: `${styleMap[category] || 'professional lifestyle photography'}, ${chapterTitle}. Photorealistic, high quality, editorial style, no text, no watermark, clean composition, soft natural lighting.`,
+        negative_prompt: 'text, words, letters, watermark, logo, cartoon, anime, illustration, drawing, blurry, low quality, deformed',
+        modelId: '6b645e3a-d64f-4341-a6d8-7a3690fbf042', // Leonardo Phoenix
+        width: 1024,
+        height: 768,
+        num_images: 1,
+        guidance_scale: 7,
+        alchemy: false,
+        photoReal: true,
+        photoRealVersion: 'v2',
+      }),
+    });
+
+    if (!createRes.ok) {
+      console.error('Leonardo create error:', createRes.status, await createRes.text());
+      return '';
+    }
+
+    const createData = await createRes.json();
+    const generationId = createData.sdGenerationJob?.generationId;
+    if (!generationId) return '';
+
+    // Step 2: Poll per il risultato (max 30 secondi)
+    for (let i = 0; i < 15; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+
+      const pollRes = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
+        headers: { 'Authorization': `Bearer ${LEONARDO_API_KEY}` },
+      });
+
+      if (!pollRes.ok) continue;
+
+      const pollData = await pollRes.json();
+      const gen = pollData.generations_by_pk;
+
+      if (gen?.status === 'COMPLETE' && gen.generated_images?.length > 0) {
+        return gen.generated_images[0].url || '';
+      }
+
+      if (gen?.status === 'FAILED') return '';
+    }
+
+    return '';
+  } catch (e) {
+    console.error('Leonardo error:', e);
+    return '';
+  }
+}
+
+async function generateImage(chapterTitle: string, category: string, provider: string = 'dalle'): Promise<string> {
+  if (provider === 'leonardo' && LEONARDO_API_KEY) {
+    const url = await generateImageLeonardo(chapterTitle, category);
+    if (url) return url;
+    // Fallback a DALL-E se Leonardo fallisce
+  }
+  return generateImageDalle(chapterTitle, category);
 }
 
 export async function POST(request: NextRequest) {
@@ -61,7 +138,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { step, title, category, prompt, chapters = 8, chapterTitles, chapterTitle, chapterNum } = body;
+    const { step, title, category, prompt, chapters = 8, chapterTitles, chapterTitle, chapterNum, imageProvider = 'dalle' } = body;
 
     const catContext = CATEGORY_CONTEXT[category] || category;
 
@@ -203,7 +280,7 @@ REGOLE:
 
     // STEP 5: Genera immagine
     if (step === 'image') {
-      const url = await generateImage(chapterTitle || title, category);
+      const url = await generateImage(chapterTitle || title, category, imageProvider);
       return NextResponse.json({ success: true, url });
     }
 

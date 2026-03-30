@@ -130,7 +130,7 @@ export default function GeneraGuidePage() {
       if (generateImages) {
         setProgress(`Generazione immagini (${chapterTitles.length})...`);
         const imgPromises = chapterTitles.map(ct =>
-          apiCall({ step: 'image', title, category, chapterTitle: ct })
+          apiCall({ step: 'image', title, category, chapterTitle: ct, imageProvider: imageProvider === 'leonardo' ? 'leonardo' : 'dalle' })
             .then(d => d.url ? { chapter: ct, url: d.url } : null)
             .catch(() => null)
         );
