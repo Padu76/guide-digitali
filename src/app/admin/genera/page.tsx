@@ -58,6 +58,11 @@ export default function GeneraGuidePage() {
   const [error, setError] = useState('');
   const [publishResult, setPublishResult] = useState('');
 
+  // Ricerca esercizi
+  const [showExerciseSearch, setShowExerciseSearch] = useState(false);
+  const [exerciseQuery, setExerciseQuery] = useState('');
+  const [exerciseResults, setExerciseResults] = useState<Array<{ id: string; name: string; muscles: string; equipment: string }>>([]);
+
   // Metadata per pubblicazione
   const [price, setPrice] = useState(9);
   const [shortDesc, setShortDesc] = useState('');
@@ -718,8 +723,90 @@ ${bodyHtml}
                       </svg>
                       Inserisci Immagine
                     </button>
-                    <span className="text-[10px] text-gray-600">Posiziona il cursore dove vuoi l'immagine, poi clicca</span>
+                    {/* Bottone Inserisci Esercizio (con foto start/end da free-exercise-db) */}
+                    <button onClick={() => setShowExerciseSearch(true)}
+                      className="px-3 py-1.5 bg-green-900/30 border border-green-800 rounded-lg text-xs text-green-400 hover:bg-green-900/50 transition flex items-center gap-1.5">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
+                      </svg>
+                      Inserisci Esercizio
+                    </button>
+                    <span className="text-[10px] text-gray-600">Posiziona il cursore, poi clicca</span>
                   </div>
+
+                  {/* Modal ricerca esercizi */}
+                  {showExerciseSearch && (
+                    <div className="absolute inset-0 z-50 bg-black/80 flex items-start justify-center pt-8 overflow-y-auto">
+                      <div className="bg-[#0a0a1a] border border-[#2a2a3e] rounded-xl w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-[#1f2937]">
+                          <h3 className="text-sm font-bold text-white">Cerca Esercizio (800+ disponibili)</h3>
+                          <button onClick={() => setShowExerciseSearch(false)} className="text-gray-500 hover:text-white text-lg">✕</button>
+                        </div>
+                        <div className="px-4 py-3 border-b border-[#1f2937]">
+                          <input
+                            autoFocus
+                            placeholder="Cerca per nome, muscolo o attrezzo..."
+                            value={exerciseQuery}
+                            onChange={async (e) => {
+                              setExerciseQuery(e.target.value);
+                              if (e.target.value.length < 2) { setExerciseResults([]); return; }
+                              try {
+                                const res = await fetch(`/api/admin/exercise-search?q=${encodeURIComponent(e.target.value)}`);
+                                if (res.ok) {
+                                  const data = await res.json();
+                                  setExerciseResults(data.results || []);
+                                }
+                              } catch {}
+                            }}
+                            className="w-full px-4 py-2 bg-[#111827] border border-[#1f2937] rounded-lg text-white text-sm"
+                          />
+                        </div>
+                        <div className="flex-1 overflow-y-auto px-4 py-2">
+                          {exerciseResults.length === 0 && exerciseQuery.length >= 2 && (
+                            <p className="text-gray-500 text-sm text-center py-8">Nessun risultato</p>
+                          )}
+                          {exerciseResults.map((ex: { id: string; name: string; muscles: string; equipment: string }) => (
+                            <button key={ex.id} onClick={async () => {
+                              // Upload foto su Supabase e inserisci nel markdown
+                              try {
+                                const res = await fetch('/api/admin/upload-exercise', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ exerciseId: ex.id, slug: autoSlug(title) }),
+                                });
+                                if (res.ok) {
+                                  const data = await res.json();
+                                  const textarea = document.getElementById('markdown-editor') as HTMLTextAreaElement;
+                                  const pos = textarea?.selectionStart || editedMarkdown.length;
+                                  let imgMd = `\n\n**${ex.name}** — _${ex.muscles} | ${ex.equipment}_\n\n`;
+                                  if (data.urls.end) {
+                                    imgMd += `![${ex.name} - Inizio](${data.urls.start})\n![${ex.name} - Fine](${data.urls.end})\n\n`;
+                                  } else {
+                                    imgMd += `![${ex.name}](${data.urls.start})\n\n`;
+                                  }
+                                  setEditedMarkdown(prev => prev.slice(0, pos) + imgMd + prev.slice(pos));
+                                  setShowExerciseSearch(false);
+                                  setExerciseQuery('');
+                                  setExerciseResults([]);
+                                } else {
+                                  const data = await res.json();
+                                  alert('Errore: ' + (data.error || 'Upload fallito'));
+                                }
+                              } catch { alert('Errore connessione'); }
+                            }}
+                              className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-[#111827] rounded-lg transition text-left">
+                              <div>
+                                <span className="text-sm text-white font-medium">{ex.name}</span>
+                                <span className="text-xs text-gray-500 ml-2">{ex.muscles}</span>
+                              </div>
+                              <span className="text-[10px] text-gray-600 bg-[#1f2937] px-2 py-0.5 rounded">{ex.equipment}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <textarea id="markdown-editor" value={editedMarkdown} onChange={e => setEditedMarkdown(e.target.value)}
                     className="flex-1 w-full px-5 py-4 bg-[#0d1117] text-gray-300 text-sm font-mono resize-none focus:outline-none leading-relaxed"
                     spellCheck={false} />
