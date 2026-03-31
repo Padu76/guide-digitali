@@ -36,11 +36,6 @@ export async function GET(
       return NextResponse.json({ error: 'expired', message: 'Questo link e scaduto.' }, { status: 410 });
     }
 
-    await supabase
-      .from('guide_orders')
-      .update({ download_used: true })
-      .eq('id', order.id);
-
     const items = order.items as { product_id: string; slug: string; title: string; price: number }[];
 
     // Scarica il primo PDF (in futuro: ZIP per multi)
@@ -51,6 +46,7 @@ export async function GET(
       .single();
 
     if (!product || !product.pdf_path) {
+      console.error('PDF non trovato per product_id:', items[0].product_id);
       return NextResponse.json({ error: 'PDF non trovato' }, { status: 404 });
     }
 
@@ -59,8 +55,15 @@ export async function GET(
       .download(product.pdf_path);
 
     if (downloadErr || !fileData) {
+      console.error('Errore storage download:', downloadErr?.message, 'path:', product.pdf_path);
       return NextResponse.json({ error: 'Errore download PDF' }, { status: 500 });
     }
+
+    // Segna token come usato DOPO il download riuscito
+    await supabase
+      .from('guide_orders')
+      .update({ download_used: true })
+      .eq('id', order.id);
 
     const arrayBuffer = await fileData.arrayBuffer();
     const filename = `${items[0].slug}.pdf`;
