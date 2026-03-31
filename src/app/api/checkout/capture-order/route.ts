@@ -70,11 +70,17 @@ export async function POST(request: NextRequest) {
     const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || '';
     const downloadUrl = `${baseUrl}/success?token=${downloadToken}`;
 
-    await sendPurchaseEmail({
+    // Email in background — non blocca il flusso se fallisce
+    sendPurchaseEmail({
       to: order.email,
       items,
       amount: Number(order.amount),
       downloadUrl,
+    }).then(result => {
+      if (!result.success) console.error('Email non inviata a:', order.email, result.error);
+      else console.log('Email inviata a:', order.email);
+    }).catch(err => {
+      console.error('Errore invio email a:', order.email, err);
     });
 
     return NextResponse.json({

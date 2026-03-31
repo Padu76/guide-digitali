@@ -57,13 +57,42 @@ export async function GET(
       return NextResponse.json({ error: 'PDF non trovato' }, { status: 404 });
     }
 
-    const { data: fileData, error: downloadErr } = await supabase.storage
-      .from('guide-pdfs')
-      .download(product.pdf_path);
+    // Prova a scaricare il PDF dal path nel DB
+    let fileData: Blob | null = null;
+    let contentType = 'application/pdf';
+    let filename = `${items[0].slug}.pdf`;
 
-    if (downloadErr || !fileData) {
-      console.error('Errore storage download:', downloadErr?.message, 'path:', product.pdf_path);
-      return NextResponse.json({ error: 'Errore download PDF' }, { status: 500 });
+    // 1. Prova il pdf_path diretto (es. fitness/slug.pdf)
+    const pdfPath = product.pdf_path.startsWith('http')
+      ? product.pdf_path.replace(/^.*\/guide-pdfs\//, '')
+      : product.pdf_path;
+
+    const { data: pdfData, error: pdfErr } = await supabase.storage
+      .from('guide-pdfs')
+      .download(pdfPath);
+
+    if (!pdfErr && pdfData) {
+      fileData = pdfData;
+    }
+
+    // 2. Fallback: cerca HTML in guide-html/{slug}.html
+    if (!fileData) {
+      const htmlPath = `guide-html/${items[0].slug}.html`;
+      console.log('PDF non trovato, provo HTML fallback:', htmlPath);
+      const { data: htmlData, error: htmlErr } = await supabase.storage
+        .from('guide-pdfs')
+        .download(htmlPath);
+
+      if (!htmlErr && htmlData) {
+        fileData = htmlData;
+        contentType = 'text/html';
+        filename = `${items[0].slug}.html`;
+      }
+    }
+
+    if (!fileData) {
+      console.error('Nessun file trovato per:', items[0].slug, 'pdf_path:', pdfPath);
+      return NextResponse.json({ error: 'Guida non trovata nel storage' }, { status: 500 });
     }
 
     // Incrementa contatore download DOPO il download riuscito
@@ -74,11 +103,10 @@ export async function GET(
 
     const remaining = MAX_DOWNLOADS - downloadCount - 1;
     const arrayBuffer = await fileData.arrayBuffer();
-    const filename = `${items[0].slug}.pdf`;
 
     return new NextResponse(arrayBuffer, {
       headers: {
-        'Content-Type': 'application/pdf',
+        'Content-Type': contentType,
         'Content-Disposition': `attachment; filename="${filename}"`,
         'x-filename': filename,
         'x-downloads-remaining': String(remaining),
