@@ -188,47 +188,134 @@ export default function GeneraGuidePage() {
     setPublishResult('');
 
     try {
-      // 1. Carica HTML su Supabase (con immagini permanenti)
-      const genRes = await fetch('/api/admin/generate-pdf', {
+      const slug = autoSlug(title);
+
+      // 1. Genera PDF lato client dall'HTML della guida
+      setPublishResult('Generazione PDF...');
+      const pdfBlob = await generatePdfBlob();
+
+      // 2. Carica PDF nel bucket Supabase Storage
+      setPublishResult('Upload PDF nel bucket...');
+      const formData = new FormData();
+      formData.append('pdf', pdfBlob, `${slug}.pdf`);
+      formData.append('category', category);
+      formData.append('slug', slug);
+
+      const uploadRes = await fetch('/api/admin/upload-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+      const uploadData = await uploadRes.json();
+      if (!uploadRes.ok) throw new Error(uploadData.error);
+
+      // 3. Carica anche HTML su Supabase (backup/preview)
+      await fetch('/api/admin/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
-          slug: autoSlug(title),
+          slug,
           category,
           markdown: editedMarkdown,
-          images: result.images, // URL permanenti Supabase
+          images: result.images,
         }),
       });
-      const genData = await genRes.json();
-      if (!genRes.ok) throw new Error(genData.error);
 
-      // 2. Pubblica su store (con cover automatica dalla prima immagine DALL-E)
+      // 4. Pubblica su store con il path corretto del PDF
+      setPublishResult('Pubblicazione...');
       const firstImage = result.images?.[0]?.url || null;
       const pubRes = await fetch('/api/admin/publish-guide', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title,
-          slug: autoSlug(title),
+          slug,
           category,
           description: editedMarkdown.slice(0, 500),
           short_description: shortDesc || `Guida completa: ${title}`,
           price,
           page_count: result.stats.estimatedPages,
           features: [`${result.stats.estimatedPages}+ pagine`, `${result.stats.chapters} capitoli`, 'Stampabile', 'Download immediato'],
-          pdf_url: genData.pdfUrl,
+          pdf_url: uploadData.pdf_path,
           cover_image_url: firstImage,
         }),
       });
       const pubData = await pubRes.json();
       if (!pubRes.ok) throw new Error(pubData.error);
 
-      setPublishResult(`Pubblicata su /guide/${autoSlug(title)}`);
+      setPublishResult(`Pubblicata su /guide/${slug} — PDF caricato nel bucket`);
       setStep('review');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore pubblicazione');
       setStep('review');
+    }
+  }
+
+  async function generatePdfBlob(): Promise<Blob> {
+    const html2pdf = (await import('html2pdf.js')).default;
+    const c = CATEGORIES[category].color;
+    const bodyHtml = markdownToPdfHtml(editedMarkdown);
+
+    const tocItems = editedMarkdown.split('\n').filter(l => l.trim().startsWith('## ')).map(l => l.trim().slice(3));
+    let tocHtml = '';
+    tocItems.forEach((item, i) => {
+      tocHtml += `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px dotted #e2e8f0;">
+        <span style="color:#334155;font-size:13px;"><span style="color:${c};font-weight:800;margin-right:14px;font-size:14px;">${String(i + 1).padStart(2, '0')}</span>${item}</span>
+        <span style="color:#94a3b8;font-size:12px;">${i + 3}</span></div>`;
+    });
+
+    const fullHtml = `<div id="pdf-content">
+      <div style="text-align:center;padding:100px 0 60px;">
+        <div style="margin-bottom:28px;">
+          <span style="background:${c};color:white;padding:8px 24px;border-radius:24px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${CATEGORIES[category].label}</span>
+        </div>
+        <h1 style="font-size:38px;font-weight:800;color:#0f172a;margin:28px auto;line-height:1.15;max-width:500px;">${title}</h1>
+        <div style="width:70px;height:4px;background:${c};margin:28px auto;border-radius:2px;"></div>
+        <p style="color:#64748b;font-size:14px;max-width:400px;margin:0 auto;line-height:1.7;">Guida pratica e completa.<br>Scaricabile e stampabile.</p>
+        <div style="margin-top:100px;">
+          <span style="color:${c};font-weight:700;font-size:13px;">GuideDigitali</span>
+          <span style="color:#94a3b8;font-size:12px;"> — guidedigitali.vercel.app</span>
+        </div>
+      </div>
+      <div style="page-break-before:always;">
+        <h2 style="color:#0f172a;font-size:26px;font-weight:800;margin-bottom:28px;">Sommario</h2>
+        ${tocHtml}
+      </div>
+      <div style="page-break-before:always;">
+        ${bodyHtml}
+      </div>
+      <div style="page-break-before:always;text-align:center;padding-top:120px;">
+        <div style="width:60px;height:4px;background:${c};margin:0 auto 28px;border-radius:2px;"></div>
+        <p style="color:${c};font-weight:800;font-size:18px;">GuideDigitali</p>
+        <p style="color:#64748b;font-size:13px;margin-top:8px;">guidedigitali.vercel.app</p>
+      </div>
+    </div>`;
+
+    const container = document.createElement('div');
+    container.innerHTML = fullHtml;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.width = '210mm';
+    container.style.fontFamily = "'Segoe UI', -apple-system, Arial, sans-serif";
+    container.style.background = '#fff';
+    container.style.color = '#334155';
+    document.body.appendChild(container);
+
+    try {
+      const blob: Blob = await html2pdf()
+        .set({
+          margin: [20, 18, 20, 18],
+          filename: `${autoSlug(title)}.pdf`,
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'], before: '[style*="page-break-before"]' },
+        })
+        .from(container)
+        .outputPdf('blob');
+      return blob;
+    } finally {
+      document.body.removeChild(container);
     }
   }
 

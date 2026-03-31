@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         price: price || 9.00,
         page_count: page_count || null,
         features: features || [],
-        pdf_path: pdf_url || '',
+        pdf_path: pdf_url && !pdf_url.startsWith('http') ? pdf_url : pdf_url?.replace(/^.*\/guide-pdfs\//, '') || '',
         active: true,
       };
       // Aggiorna cover solo se ne abbiamo una nuova da DALL-E
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
         price: price || 9.00,
         page_count: page_count || null,
         features: features || [],
-        pdf_path: pdf_url || '',
+        pdf_path: pdf_url && !pdf_url.startsWith('http') ? pdf_url : pdf_url?.replace(/^.*\/guide-pdfs\//, '') || '',
         cover_image: coverImagePath,
         preview_pages: 3,
         download_count: 0,
