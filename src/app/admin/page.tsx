@@ -19,6 +19,8 @@ export default function GuideAdminPage() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState<'orders' | 'guides'>('guides');
+  const [pdfGenerating, setPdfGenerating] = useState<Record<string, boolean>>({});
+  const [pdfBulkProgress, setPdfBulkProgress] = useState<string>('');
 
   useEffect(() => {
     // Controlla se gia autenticato via cookie
@@ -190,7 +192,113 @@ export default function GuideAdminPage() {
     }
   }
 
-  // Export rimosso - non necessario
+  // Genera PDF da HTML e carica nel bucket Supabase
+  async function generateAndUploadPdf(guide: GuideProduct): Promise<boolean> {
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      // Scarica HTML dalla guida (pdf_path punta all'HTML nel bucket)
+      let htmlContent = '';
+      const htmlUrl = guide.pdf_path.startsWith('http')
+        ? guide.pdf_path
+        : `/api/admin/guide-html/${guide.slug}`;
+
+      // Prova a scaricare l'HTML dal bucket tramite API
+      const htmlRes = await fetch(`/api/admin/guide-html?slug=${guide.slug}`);
+      if (htmlRes.ok) {
+        htmlContent = await htmlRes.text();
+      } else {
+        // Fallback: prova il pdf_path diretto
+        const fallbackRes = await fetch(htmlUrl);
+        if (fallbackRes.ok) {
+          htmlContent = await fallbackRes.text();
+        } else {
+          console.error('HTML non trovato per:', guide.slug);
+          return false;
+        }
+      }
+
+      // Crea container nascosto per rendering
+      const container = document.createElement('div');
+      container.innerHTML = htmlContent;
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.width = '210mm';
+      container.style.fontFamily = "'Segoe UI', -apple-system, Arial, sans-serif";
+      container.style.background = '#fff';
+      container.style.color = '#334155';
+      document.body.appendChild(container);
+
+      // Genera PDF
+      const pdfBlob: Blob = await html2pdf()
+        .set({
+          margin: [20, 18, 20, 18],
+          filename: `${guide.slug}.pdf`,
+          image: { type: 'jpeg', quality: 0.95 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: ['css', 'legacy'], before: '[style*="page-break-before"]' },
+        })
+        .from(container)
+        .outputPdf('blob');
+
+      document.body.removeChild(container);
+
+      // Upload PDF nel bucket
+      const formData = new FormData();
+      formData.append('pdf', pdfBlob, `${guide.slug}.pdf`);
+      formData.append('category', guide.category);
+      formData.append('slug', guide.slug);
+
+      const uploadRes = await fetch('/api/admin/upload-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        const err = await uploadRes.json();
+        console.error('Upload fallito:', err.error);
+        return false;
+      }
+
+      return true;
+    } catch (err) {
+      console.error('Errore generazione PDF per:', guide.slug, err);
+      return false;
+    }
+  }
+
+  async function handleGeneratePdf(guide: GuideProduct) {
+    setPdfGenerating(prev => ({ ...prev, [guide.id]: true }));
+    const ok = await generateAndUploadPdf(guide);
+    setPdfGenerating(prev => ({ ...prev, [guide.id]: false }));
+    if (ok) {
+      alert(`PDF generato e caricato per "${guide.title}"`);
+    } else {
+      alert(`Errore generazione PDF per "${guide.title}"`);
+    }
+  }
+
+  async function handleGenerateAllPdfs() {
+    if (!confirm(`Generare PDF per tutte le ${guides.length} guide? Potrebbe richiedere qualche minuto.`)) return;
+
+    let done = 0;
+    let errors = 0;
+
+    for (const guide of guides) {
+      setPdfBulkProgress(`Generazione ${done + 1}/${guides.length}: ${guide.title}...`);
+      setPdfGenerating(prev => ({ ...prev, [guide.id]: true }));
+
+      const ok = await generateAndUploadPdf(guide);
+      if (ok) done++;
+      else errors++;
+
+      setPdfGenerating(prev => ({ ...prev, [guide.id]: false }));
+    }
+
+    setPdfBulkProgress(`Completato: ${done} PDF generati, ${errors} errori.`);
+    setTimeout(() => setPdfBulkProgress(''), 5000);
+  }
 
   // Login form
   if (!authed) {
@@ -271,6 +379,20 @@ export default function GuideAdminPage() {
         {/* GUIDE PUBBLICATE */}
         {activeTab === 'guides' && (
           <div className="space-y-3 mb-8">
+            {guides.length > 0 && (
+              <div className="flex items-center gap-3 mb-4">
+                <button
+                  onClick={handleGenerateAllPdfs}
+                  disabled={!!pdfBulkProgress}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 text-sm text-white font-semibold hover:opacity-90 transition-all disabled:opacity-50"
+                >
+                  Genera tutti PDF
+                </button>
+                {pdfBulkProgress && (
+                  <span className="text-xs text-orange-400 animate-pulse">{pdfBulkProgress}</span>
+                )}
+              </div>
+            )}
             {guides.length === 0 ? (
               <div className="text-center py-12 text-gray-600">
                 <p className="text-lg mb-2">Nessuna guida pubblicata</p>
@@ -336,12 +458,13 @@ export default function GuideAdminPage() {
                           Anteprima
                         </button>
                       )}
-                      {guide.pdf_path && (
-                        <button onClick={() => handlePrintGuide(guide.pdf_path)}
-                          className="px-3 py-1.5 rounded-lg bg-violet-900/20 text-xs text-violet-400 hover:bg-violet-900/40 transition">
-                          Salva PDF
-                        </button>
-                      )}
+                      <button
+                        onClick={() => handleGeneratePdf(guide)}
+                        disabled={pdfGenerating[guide.id]}
+                        className="px-3 py-1.5 rounded-lg bg-orange-900/20 text-xs text-orange-400 hover:bg-orange-900/40 transition disabled:opacity-50"
+                      >
+                        {pdfGenerating[guide.id] ? 'Generando...' : 'Genera PDF'}
+                      </button>
                       <a href={`/${guide.slug}`} target="_blank"
                         className="px-3 py-1.5 rounded-lg bg-white/5 text-xs text-gray-400 hover:text-white transition">
                         Store
@@ -421,9 +544,9 @@ export default function GuideAdminPage() {
                           </span>
                         </td>
                         <td className="p-3 text-center text-xs">
-                          {order.download_used
-                            ? <span className="text-green-400">Scaricato</span>
-                            : <span className="text-gray-600">--</span>
+                          {(order as Record<string, unknown>).download_count
+                            ? <span className="text-green-400">{String((order as Record<string, unknown>).download_count)}/2</span>
+                            : <span className="text-gray-600">0/2</span>
                           }
                         </td>
                       </tr>
