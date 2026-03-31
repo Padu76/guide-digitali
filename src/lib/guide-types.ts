@@ -27,7 +27,7 @@ export interface GuideOrder {
   paypal_order_id: string | null;
   status: 'pending' | 'completed' | 'failed' | 'refunded';
   download_token: string | null;
-  download_used: boolean;
+  download_count: number;
   download_expires_at: string | null;
   amount: number;
   discount_amount: number;

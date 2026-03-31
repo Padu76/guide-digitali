@@ -544,8 +544,8 @@ export default function GuideAdminPage() {
                           </span>
                         </td>
                         <td className="p-3 text-center text-xs">
-                          {(order as Record<string, unknown>).download_count
-                            ? <span className="text-green-400">{String((order as Record<string, unknown>).download_count)}/2</span>
+                          {order.download_count
+                            ? <span className="text-green-400">{order.download_count}/2</span>
                             : <span className="text-gray-600">0/2</span>
                           }
                         </td>
