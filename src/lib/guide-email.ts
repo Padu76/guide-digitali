@@ -8,7 +8,7 @@ import { formatPrice } from './guide-utils';
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY || 'placeholder');
 }
-const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'guide@guidedigitali.it';
+const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'guide@tornoinforma.it';
 
 // Invia email post-acquisto con link download
 export async function sendPurchaseEmail(params: {
