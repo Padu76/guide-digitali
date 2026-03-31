@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS public.guide_orders (
   paypal_order_id TEXT UNIQUE,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','completed','failed','refunded')),
   download_token TEXT UNIQUE,
-  download_used BOOLEAN DEFAULT false,
+  download_count INTEGER DEFAULT 0,
   download_expires_at TIMESTAMPTZ,
   amount NUMERIC(8,2) NOT NULL,
   discount_amount NUMERIC(8,2) DEFAULT 0,

@@ -14,6 +14,7 @@ function SuccessContent() {
   const token = searchParams.get('token');
   const [downloadState, setDownloadState] = useState<'ready' | 'downloading' | 'done' | 'error' | 'expired'>('ready');
   const [errorMsg, setErrorMsg] = useState('');
+  const [downloadsRemaining, setDownloadsRemaining] = useState<number | null>(null);
 
   async function handleDownload() {
     if (!token) return;
@@ -25,11 +26,14 @@ function SuccessContent() {
         const data = await res.json().catch(() => null);
         if (res.status === 410 || (data && data.error === 'expired')) {
           setDownloadState('expired');
-          setErrorMsg('Il link di download e scaduto o gia utilizzato.');
+          setErrorMsg(data?.message || 'Limite download raggiunto o link scaduto.');
           return;
         }
         throw new Error(data?.error || 'Errore download');
       }
+
+      const remaining = res.headers.get('x-downloads-remaining');
+      if (remaining !== null) setDownloadsRemaining(parseInt(remaining, 10));
 
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -69,7 +73,7 @@ function SuccessContent() {
       <h1 className="text-3xl font-bold text-white mb-3">Acquisto completato!</h1>
       <p className="text-gray-400 mb-8 max-w-md mx-auto">
         Grazie per il tuo acquisto. Clicca il bottone qui sotto per scaricare le tue guide.
-        Il link e valido per un singolo utilizzo.
+        Hai a disposizione 2 download.
       </p>
 
       {downloadState === 'ready' && (
@@ -106,6 +110,17 @@ function SuccessContent() {
           <p className="text-xs text-gray-500">
             Controlla la cartella Download del tuo browser.
           </p>
+          {downloadsRemaining !== null && downloadsRemaining > 0 && (
+            <button
+              onClick={() => setDownloadState('ready')}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-lg bg-white/5 border border-white/10 text-sm text-gray-300 hover:bg-white/10 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+              </svg>
+              Scarica di nuovo ({downloadsRemaining} {downloadsRemaining === 1 ? 'rimanente' : 'rimanenti'})
+            </button>
+          )}
         </div>
       )}
 

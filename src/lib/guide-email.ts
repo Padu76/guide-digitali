@@ -58,7 +58,7 @@ export async function sendPurchaseEmail(params: {
       </div>
 
       <p style="color:#6b7280;font-size:12px;text-align:center;margin:16px 0 0;">
-        Il link di download e valido per 48 ore e utilizzabile una sola volta.
+        Il link di download e valido per 48 ore e utilizzabile fino a 2 volte.
       </p>
     </div>
 

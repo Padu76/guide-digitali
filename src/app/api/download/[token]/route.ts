@@ -1,8 +1,10 @@
 // E:\guide-digitali\src\app\api\download\[token]\route.ts
-// GET — Download sicuro PDF con token monouso
+// GET — Download sicuro PDF con token (max 2 download)
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+
+const MAX_DOWNLOADS = 2;
 
 export async function GET(
   request: NextRequest,
@@ -28,8 +30,13 @@ export async function GET(
       return NextResponse.json({ error: 'Token non valido' }, { status: 404 });
     }
 
-    if (order.download_used) {
-      return NextResponse.json({ error: 'expired', message: 'Questo link e gia stato utilizzato.' }, { status: 410 });
+    const downloadCount = order.download_count ?? 0;
+
+    if (downloadCount >= MAX_DOWNLOADS) {
+      return NextResponse.json({
+        error: 'expired',
+        message: `Hai raggiunto il limite di ${MAX_DOWNLOADS} download per questo link.`,
+      }, { status: 410 });
     }
 
     if (order.download_expires_at && new Date(order.download_expires_at) < new Date()) {
@@ -59,12 +66,13 @@ export async function GET(
       return NextResponse.json({ error: 'Errore download PDF' }, { status: 500 });
     }
 
-    // Segna token come usato DOPO il download riuscito
+    // Incrementa contatore download DOPO il download riuscito
     await supabase
       .from('guide_orders')
-      .update({ download_used: true })
+      .update({ download_count: downloadCount + 1 })
       .eq('id', order.id);
 
+    const remaining = MAX_DOWNLOADS - downloadCount - 1;
     const arrayBuffer = await fileData.arrayBuffer();
     const filename = `${items[0].slug}.pdf`;
 
@@ -73,6 +81,7 @@ export async function GET(
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="${filename}"`,
         'x-filename': filename,
+        'x-downloads-remaining': String(remaining),
       },
     });
   } catch (err) {
