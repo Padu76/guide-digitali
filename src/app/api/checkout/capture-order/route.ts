@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { getSupabase } from '@/lib/supabase';
 import { capturePayPalOrder } from '@/lib/paypal';
 import { sendPurchaseEmail } from '@/lib/guide-email';
+import { sendTelegramNotification, formatSaleNotification } from '@/lib/telegram';
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,6 +70,14 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || '';
     const downloadUrl = `${baseUrl}/success?token=${downloadToken}`;
+
+    // Notifica Telegram in background
+    sendTelegramNotification(formatSaleNotification({
+      email: order.email,
+      items,
+      amount: Number(order.amount),
+      coupon: order.coupon_code,
+    })).catch(err => console.error('Telegram errore:', err));
 
     // Email in background — non blocca il flusso se fallisce
     sendPurchaseEmail({
