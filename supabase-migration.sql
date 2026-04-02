@@ -166,3 +166,27 @@ INSERT INTO public.guide_coupons (code, discount_percent, active, uses_remaining
 VALUES
 ('LANCIO30', 30, true, 50, '2026-06-30T23:59:59Z'),
 ('WELCOME10', 10, true, null, null);
+
+-- =============================================
+-- Tabella promo claims (guide gratuite)
+-- =============================================
+
+CREATE TABLE IF NOT EXISTS public.guide_promo_claims (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email TEXT NOT NULL,
+  product_id UUID NOT NULL REFERENCES public.guide_products(id),
+  slug TEXT NOT NULL,
+  download_token TEXT UNIQUE NOT NULL,
+  download_count INTEGER DEFAULT 0,
+  download_expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_promo_claims_email ON public.guide_promo_claims(email);
+CREATE INDEX IF NOT EXISTS idx_promo_claims_token ON public.guide_promo_claims(download_token);
+
+ALTER TABLE public.guide_promo_claims ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "guide_promo_claims_service_all" ON public.guide_promo_claims
+  FOR ALL USING (true) WITH CHECK (true);
