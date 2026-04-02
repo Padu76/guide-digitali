@@ -179,12 +179,14 @@ CREATE TABLE IF NOT EXISTS public.guide_promo_claims (
   download_token TEXT UNIQUE NOT NULL,
   download_count INTEGER DEFAULT 0,
   download_expires_at TIMESTAMPTZ,
+  ip_address TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   UNIQUE(email)
 );
 
 CREATE INDEX IF NOT EXISTS idx_promo_claims_email ON public.guide_promo_claims(email);
 CREATE INDEX IF NOT EXISTS idx_promo_claims_token ON public.guide_promo_claims(download_token);
+CREATE INDEX IF NOT EXISTS idx_promo_claims_ip ON public.guide_promo_claims(ip_address);
 
 ALTER TABLE public.guide_promo_claims ENABLE ROW LEVEL SECURITY;
 

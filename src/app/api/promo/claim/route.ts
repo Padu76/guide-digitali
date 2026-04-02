@@ -1,5 +1,5 @@
 // POST — Richiedi guida gratuita in cambio di email
-// Limite: 1 guida gratis per email
+// Limite: 1 guida gratis per email E per IP
 
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
@@ -19,17 +19,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Email non valida' }, { status: 400 });
     }
 
+    // Ottieni IP
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || request.headers.get('x-real-ip')
+      || 'unknown';
+
     const supabase = getSupabase();
 
     // Controlla se questa email ha gia riscattato una guida gratis
-    const { data: existing } = await supabase
+    const { data: emailExisting } = await supabase
       .from('guide_promo_claims')
       .select('id')
       .eq('email', email.toLowerCase())
       .limit(1);
 
-    if (existing && existing.length > 0) {
+    if (emailExisting && emailExisting.length > 0) {
       return NextResponse.json({ error: 'Hai gia riscattato la tua guida gratuita.' }, { status: 409 });
+    }
+
+    // Controlla se questo IP ha gia riscattato una guida gratis
+    if (ip !== 'unknown') {
+      const { data: ipExisting } = await supabase
+        .from('guide_promo_claims')
+        .select('id')
+        .eq('ip_address', ip)
+        .limit(1);
+
+      if (ipExisting && ipExisting.length > 0) {
+        return NextResponse.json({ error: 'Hai gia riscattato la tua guida gratuita da questo dispositivo.' }, { status: 409 });
+      }
     }
 
     // Verifica che il prodotto esista
@@ -58,6 +76,7 @@ export async function POST(request: NextRequest) {
         download_token: downloadToken,
         download_count: 0,
         download_expires_at: expiresAt,
+        ip_address: ip,
       });
 
     if (insertErr) {
