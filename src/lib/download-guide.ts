@@ -67,6 +67,16 @@ export async function downloadGuideFile(
 }
 
 function injectDownloadToolbar(html: string, slug: string): string {
+  // Imposta il titolo della pagina (usato come nome file nel "Salva come PDF")
+  const readableTitle = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  if (html.includes('<title>')) {
+    html = html.replace(/<title>[^<]*<\/title>/, `<title>${readableTitle}</title>`);
+  } else if (html.includes('<head')) {
+    html = html.replace(/<head[^>]*>/, `$&<title>${readableTitle}</title>`);
+  } else {
+    html = `<html><head><title>${readableTitle}</title></head>` + html;
+  }
+
   const toolbar = `
 <div id="guide-toolbar" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#0f172a,#1e293b);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
   <span style="color:#94a3b8;font-size:13px;"><span style="color:#22d3ee;font-weight:700;">GuideDigitali</span> — ${slug}</span>
