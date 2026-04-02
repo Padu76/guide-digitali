@@ -50,8 +50,13 @@ export async function downloadGuideFile(
     .download(htmlPath);
 
   if (htmlData) {
+    // Inietta toolbar di download nell'HTML
+    let html = await htmlData.text();
+    html = injectDownloadToolbar(html, slug);
+
+    const encoder = new TextEncoder();
     return {
-      data: await htmlData.arrayBuffer(),
+      data: encoder.encode(html).buffer as ArrayBuffer,
       contentType: 'text/html; charset=utf-8',
       filename: `${slug}.html`,
       isHtml: true,
@@ -59,4 +64,22 @@ export async function downloadGuideFile(
   }
 
   return null;
+}
+
+function injectDownloadToolbar(html: string, slug: string): string {
+  const toolbar = `
+<div id="guide-toolbar" style="position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#0f172a,#1e293b);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+  <span style="color:#94a3b8;font-size:13px;"><span style="color:#22d3ee;font-weight:700;">GuideDigitali</span> — ${slug}</span>
+  <button onclick="document.getElementById('guide-toolbar').style.display='none';window.print();" style="background:linear-gradient(135deg,#06b6d4,#8b5cf6);color:white;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;">
+    Salva come PDF
+  </button>
+</div>
+<div style="height:56px;"></div>
+<style>@media print { #guide-toolbar, #guide-toolbar + div { display:none !important; height:0 !important; } }</style>`;
+
+  // Inietta dopo <body> o all'inizio
+  if (html.includes('<body')) {
+    return html.replace(/<body[^>]*>/, '$&' + toolbar);
+  }
+  return toolbar + html;
 }
