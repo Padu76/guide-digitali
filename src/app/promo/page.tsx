@@ -61,15 +61,21 @@ export default function PromoPage() {
       const dlRes = await fetch(`/api/promo/download?token=${claimData.download_token}`);
       if (!dlRes.ok) throw new Error('Errore download');
 
+      const isHtml = dlRes.headers.get('x-is-html') === '1';
       const blob = await dlRes.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = dlRes.headers.get('x-filename') || `${selected.slug}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+
+      if (isHtml) {
+        window.open(url, '_blank');
+      } else {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = dlRes.headers.get('x-filename') || `${selected.slug}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
 
       setStep('done');
     } catch (err) {

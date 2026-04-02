@@ -35,15 +35,23 @@ function SuccessContent() {
       const remaining = res.headers.get('x-downloads-remaining');
       if (remaining !== null) setDownloadsRemaining(parseInt(remaining, 10));
 
+      const isHtml = res.headers.get('x-is-html') === '1';
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = res.headers.get('x-filename') || 'guide.pdf';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+
+      if (isHtml) {
+        // HTML: apri in nuova tab (l'utente puo stampare/salvare come PDF)
+        window.open(url, '_blank');
+      } else {
+        // PDF: scarica direttamente
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = res.headers.get('x-filename') || 'guide.pdf';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
       setDownloadState('done');
     } catch (err) {
       setDownloadState('error');
@@ -108,7 +116,7 @@ function SuccessContent() {
             Download completato!
           </div>
           <p className="text-xs text-gray-500">
-            Controlla la cartella Download del tuo browser.
+            La guida si e aperta in una nuova scheda. Usa Stampa &gt; Salva come PDF per salvarla.
           </p>
           {downloadsRemaining !== null && downloadsRemaining > 0 && (
             <button

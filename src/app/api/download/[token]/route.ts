@@ -73,12 +73,18 @@ export async function GET(
 
     const remaining = MAX_DOWNLOADS - downloadCount - 1;
 
+    // PDF: scarica come attachment. HTML: mostra inline nel browser
+    const disposition = result.isHtml
+      ? `inline; filename="${result.filename}"`
+      : `attachment; filename="${result.filename}"`;
+
     return new NextResponse(result.data, {
       headers: {
         'Content-Type': result.contentType,
-        'Content-Disposition': `attachment; filename="${result.filename}"`,
+        'Content-Disposition': disposition,
         'x-filename': result.filename,
         'x-downloads-remaining': String(remaining),
+        'x-is-html': result.isHtml ? '1' : '0',
       },
     });
   } catch (err) {
