@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { downloadGuideFile } from '@/lib/download-guide';
 
 const MAX_DOWNLOADS = 2;
 
@@ -57,41 +58,10 @@ export async function GET(
       return NextResponse.json({ error: 'PDF non trovato' }, { status: 404 });
     }
 
-    // Prova a scaricare il PDF dal path nel DB
-    let fileData: Blob | null = null;
-    let contentType = 'application/pdf';
-    let filename = `${items[0].slug}.pdf`;
+    const result = await downloadGuideFile(supabase, items[0].slug, product.pdf_path);
 
-    // 1. Prova il pdf_path diretto (es. fitness/slug.pdf)
-    const pdfPath = product.pdf_path.startsWith('http')
-      ? product.pdf_path.replace(/^.*\/guide-pdfs\//, '')
-      : product.pdf_path;
-
-    const { data: pdfData, error: pdfErr } = await supabase.storage
-      .from('guide-pdfs')
-      .download(pdfPath);
-
-    if (!pdfErr && pdfData) {
-      fileData = pdfData;
-    }
-
-    // 2. Fallback: cerca HTML in guide-html/{slug}.html
-    if (!fileData) {
-      const htmlPath = `guide-html/${items[0].slug}.html`;
-      console.log('PDF non trovato, provo HTML fallback:', htmlPath);
-      const { data: htmlData, error: htmlErr } = await supabase.storage
-        .from('guide-pdfs')
-        .download(htmlPath);
-
-      if (!htmlErr && htmlData) {
-        fileData = htmlData;
-        contentType = 'text/html';
-        filename = `${items[0].slug}.html`;
-      }
-    }
-
-    if (!fileData) {
-      console.error('Nessun file trovato per:', items[0].slug, 'pdf_path:', pdfPath);
+    if (!result) {
+      console.error('Nessun file trovato per:', items[0].slug);
       return NextResponse.json({ error: 'Guida non trovata nel storage' }, { status: 500 });
     }
 
@@ -102,13 +72,12 @@ export async function GET(
       .eq('id', order.id);
 
     const remaining = MAX_DOWNLOADS - downloadCount - 1;
-    const arrayBuffer = await fileData.arrayBuffer();
 
-    return new NextResponse(arrayBuffer, {
+    return new NextResponse(result.data, {
       headers: {
-        'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'x-filename': filename,
+        'Content-Type': result.contentType,
+        'Content-Disposition': `attachment; filename="${result.filename}"`,
+        'x-filename': result.filename,
         'x-downloads-remaining': String(remaining),
       },
     });

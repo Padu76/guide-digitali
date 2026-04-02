@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabase } from '@/lib/supabase';
+import { downloadGuideFile } from '@/lib/download-guide';
 
 const MAX_DOWNLOADS = 2;
 
@@ -48,35 +49,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Guida non trovata' }, { status: 404 });
     }
 
-    // Prova PDF, poi fallback HTML
-    let fileData: Blob | null = null;
-    let contentType = 'application/pdf';
-    let filename = `${claim.slug}.pdf`;
+    const result = await downloadGuideFile(supabase, claim.slug, product.pdf_path);
 
-    const pdfPath = product.pdf_path.startsWith('http')
-      ? product.pdf_path.replace(/^.*\/guide-pdfs\//, '')
-      : product.pdf_path;
-
-    const { data: pdfData } = await supabase.storage
-      .from('guide-pdfs')
-      .download(pdfPath);
-
-    if (pdfData) {
-      fileData = pdfData;
-    } else {
-      const htmlPath = `guide-html/${claim.slug}.html`;
-      const { data: htmlData } = await supabase.storage
-        .from('guide-pdfs')
-        .download(htmlPath);
-
-      if (htmlData) {
-        fileData = htmlData;
-        contentType = 'text/html';
-        filename = `${claim.slug}.html`;
-      }
-    }
-
-    if (!fileData) {
+    if (!result) {
       return NextResponse.json({ error: 'File non trovato' }, { status: 500 });
     }
 
@@ -87,13 +62,12 @@ export async function GET(request: NextRequest) {
       .eq('id', claim.id);
 
     const remaining = MAX_DOWNLOADS - downloadCount - 1;
-    const arrayBuffer = await fileData.arrayBuffer();
 
-    return new NextResponse(arrayBuffer, {
+    return new NextResponse(result.data, {
       headers: {
-        'Content-Type': contentType,
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'x-filename': filename,
+        'Content-Type': result.contentType,
+        'Content-Disposition': `attachment; filename="${result.filename}"`,
+        'x-filename': result.filename,
         'x-downloads-remaining': String(remaining),
       },
     });
