@@ -190,26 +190,9 @@ export default function GeneraGuidePage() {
     try {
       const slug = autoSlug(title);
 
-      // 1. Genera PDF lato client dall'HTML della guida
-      setPublishResult('Generazione PDF...');
-      const pdfBlob = await generatePdfBlob();
-
-      // 2. Carica PDF nel bucket Supabase Storage
-      setPublishResult('Upload PDF nel bucket...');
-      const formData = new FormData();
-      formData.append('pdf', pdfBlob, `${slug}.pdf`);
-      formData.append('category', category);
-      formData.append('slug', slug);
-
-      const uploadRes = await fetch('/api/admin/upload-pdf', {
-        method: 'POST',
-        body: formData,
-      });
-      const uploadData = await uploadRes.json();
-      if (!uploadRes.ok) throw new Error(uploadData.error);
-
-      // 3. Carica anche HTML su Supabase (backup/preview)
-      await fetch('/api/admin/generate-pdf', {
+      // 1. Carica HTML su Supabase Storage
+      setPublishResult('Upload HTML...');
+      const genRes = await fetch('/api/admin/generate-pdf', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -220,8 +203,10 @@ export default function GeneraGuidePage() {
           images: result.images,
         }),
       });
+      const genData = await genRes.json();
+      if (!genRes.ok) throw new Error(genData.error);
 
-      // 4. Pubblica su store con il path corretto del PDF
+      // 2. Pubblica su store
       setPublishResult('Pubblicazione...');
       const firstImage = result.images?.[0]?.url || null;
       const pubRes = await fetch('/api/admin/publish-guide', {
@@ -236,14 +221,29 @@ export default function GeneraGuidePage() {
           price,
           page_count: result.stats.estimatedPages,
           features: [`${result.stats.estimatedPages}+ pagine`, `${result.stats.chapters} capitoli`, 'Stampabile', 'Download immediato'],
-          pdf_url: uploadData.pdf_path,
+          pdf_url: `${category}/${slug}.pdf`,
           cover_image_url: firstImage,
         }),
       });
       const pubData = await pubRes.json();
       if (!pubRes.ok) throw new Error(pubData.error);
 
-      setPublishResult(`Pubblicata su /guide/${slug} — PDF caricato nel bucket`);
+      // 3. Genera PDF reale server-side (Puppeteer)
+      setPublishResult('Generazione PDF in corso...');
+      const pdfRes = await fetch('/api/admin/generate-real-pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug }),
+      });
+      const pdfData = await pdfRes.json();
+
+      if (pdfRes.ok) {
+        const sizeKb = Math.round(pdfData.size / 1024);
+        setPublishResult(`Pubblicata su /guide/${slug} — PDF generato (${sizeKb} KB)`);
+      } else {
+        // PDF fallito ma guida pubblicata con HTML (funziona comunque)
+        setPublishResult(`Pubblicata su /guide/${slug} — PDF: ${pdfData.error || 'errore'} (HTML disponibile)`);
+      }
       setStep('review');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Errore pubblicazione');

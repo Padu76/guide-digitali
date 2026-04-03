@@ -192,78 +192,16 @@ export default function GuideAdminPage() {
     }
   }
 
-  // Genera PDF da HTML e carica nel bucket Supabase
+  // Genera PDF reale server-side via Puppeteer
   async function generateAndUploadPdf(guide: GuideProduct): Promise<boolean> {
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-
-      // Scarica HTML dalla guida (pdf_path punta all'HTML nel bucket)
-      let htmlContent = '';
-      const htmlUrl = guide.pdf_path.startsWith('http')
-        ? guide.pdf_path
-        : `/api/admin/guide-html/${guide.slug}`;
-
-      // Prova a scaricare l'HTML dal bucket tramite API
-      const htmlRes = await fetch(`/api/admin/guide-html?slug=${guide.slug}`);
-      if (htmlRes.ok) {
-        htmlContent = await htmlRes.text();
-      } else {
-        // Fallback: prova il pdf_path diretto
-        const fallbackRes = await fetch(htmlUrl);
-        if (fallbackRes.ok) {
-          htmlContent = await fallbackRes.text();
-        } else {
-          console.error('HTML non trovato per:', guide.slug);
-          return false;
-        }
-      }
-
-      // Crea container nascosto per rendering
-      const container = document.createElement('div');
-      container.innerHTML = htmlContent;
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.width = '210mm';
-      container.style.fontFamily = "'Segoe UI', -apple-system, Arial, sans-serif";
-      container.style.background = '#fff';
-      container.style.color = '#334155';
-      document.body.appendChild(container);
-
-      // Genera PDF
-      const pdfBlob: Blob = await html2pdf()
-        .set({
-          margin: [20, 18, 20, 18],
-          filename: `${guide.slug}.pdf`,
-          image: { type: 'jpeg', quality: 0.95 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: ['css', 'legacy'], before: '[style*="page-break-before"]' },
-        })
-        .from(container)
-        .outputPdf('blob');
-
-      document.body.removeChild(container);
-
-      // Upload PDF nel bucket
-      const formData = new FormData();
-      formData.append('pdf', pdfBlob, `${guide.slug}.pdf`);
-      formData.append('category', guide.category);
-      formData.append('slug', guide.slug);
-
-      const uploadRes = await fetch('/api/admin/upload-pdf', {
+      const res = await fetch('/api/admin/generate-real-pdf', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: guide.slug }),
       });
-
-      if (!uploadRes.ok) {
-        const err = await uploadRes.json();
-        console.error('Upload fallito:', err.error);
-        return false;
-      }
-
-      return true;
-    } catch (err) {
-      console.error('Errore generazione PDF per:', guide.slug, err);
+      return res.ok;
+    } catch {
       return false;
     }
   }
@@ -272,11 +210,10 @@ export default function GuideAdminPage() {
     setPdfGenerating(prev => ({ ...prev, [guide.id]: true }));
     const ok = await generateAndUploadPdf(guide);
     setPdfGenerating(prev => ({ ...prev, [guide.id]: false }));
-    if (ok) {
-      alert(`PDF generato e caricato per "${guide.title}"`);
-    } else {
-      alert(`Errore generazione PDF per "${guide.title}"`);
-    }
+    alert(ok
+      ? `PDF generato e caricato per "${guide.title}"`
+      : `Errore generazione PDF per "${guide.title}"`
+    );
   }
 
   async function handleGenerateAllPdfs() {
@@ -286,7 +223,7 @@ export default function GuideAdminPage() {
     let errors = 0;
 
     for (const guide of guides) {
-      setPdfBulkProgress(`Generazione ${done + 1}/${guides.length}: ${guide.title}...`);
+      setPdfBulkProgress(`Generazione ${done + errors + 1}/${guides.length}: ${guide.title}...`);
       setPdfGenerating(prev => ({ ...prev, [guide.id]: true }));
 
       const ok = await generateAndUploadPdf(guide);
@@ -297,7 +234,7 @@ export default function GuideAdminPage() {
     }
 
     setPdfBulkProgress(`Completato: ${done} PDF generati, ${errors} errori.`);
-    setTimeout(() => setPdfBulkProgress(''), 5000);
+    setTimeout(() => setPdfBulkProgress(''), 10000);
   }
 
   // Login form
