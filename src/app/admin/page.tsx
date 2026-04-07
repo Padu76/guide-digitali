@@ -184,10 +184,10 @@ export default function GuideAdminPage() {
     }
   }
 
-  async function handlePreviewGuide(pdfPath: string) {
+  async function handlePreviewGuide(slug: string) {
     try {
-      const res = await fetch(pdfPath);
-      if (!res.ok) { alert('Errore caricamento guida'); return; }
+      const res = await fetch(`/api/admin/guide-html?slug=${slug}`);
+      if (!res.ok) { alert('Errore caricamento guida: HTML non trovato'); return; }
       const html = await res.text();
       const w = window.open('', '_blank');
       if (w) {
@@ -199,10 +199,10 @@ export default function GuideAdminPage() {
     }
   }
 
-  async function handlePrintGuide(pdfPath: string) {
+  async function handlePrintGuide(slug: string) {
     try {
-      const res = await fetch(pdfPath);
-      if (!res.ok) { alert('Errore caricamento guida'); return; }
+      const res = await fetch(`/api/admin/guide-html?slug=${slug}`);
+      if (!res.ok) { alert('Errore caricamento guida: HTML non trovato'); return; }
       const html = await res.text();
       const w = window.open('', '_blank');
       if (w) {
@@ -414,7 +414,7 @@ export default function GuideAdminPage() {
                         />
                       </label>
                       {guide.pdf_path && (
-                        <button onClick={() => handlePreviewGuide(guide.pdf_path)}
+                        <button onClick={() => handlePreviewGuide(guide.slug)}
                           className="px-3 py-1.5 rounded-lg bg-cyan-900/20 text-xs text-cyan-400 hover:bg-cyan-900/40 transition">
                           Anteprima
                         </button>
