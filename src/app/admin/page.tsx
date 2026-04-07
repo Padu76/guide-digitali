@@ -21,6 +21,7 @@ export default function GuideAdminPage() {
   const [activeTab, setActiveTab] = useState<'orders' | 'guides'>('guides');
   const [pdfGenerating, setPdfGenerating] = useState<Record<string, boolean>>({});
   const [pdfBulkProgress, setPdfBulkProgress] = useState<string>('');
+  const [notifying, setNotifying] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     // Controlla se gia autenticato via cookie
@@ -131,6 +132,28 @@ export default function GuideAdminPage() {
     } catch (err) {
       console.error('Errore eliminazione:', err);
     }
+  }
+
+  async function notifyCustomers(guide: GuideProduct) {
+    if (!confirm(`Inviare email "Nuova guida" a TUTTI i clienti per "${guide.title}"?`)) return;
+    setNotifying(prev => ({ ...prev, [guide.id]: true }));
+    try {
+      const res = await fetch('/api/admin/notify-customers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ guideTitle: guide.title, guideSlug: guide.slug, guideCategory: guide.category }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`Email inviate: ${data.sent}/${data.total} clienti${data.failed ? ` (${data.failed} fallite)` : ''}`);
+      } else {
+        alert(`Errore: ${data.error}`);
+      }
+    } catch (err) {
+      console.error('Errore notifica:', err);
+      alert('Errore invio notifiche');
+    }
+    setNotifying(prev => ({ ...prev, [guide.id]: false }));
   }
 
   async function changeCover(guide: GuideProduct, file: File) {
@@ -410,6 +433,12 @@ export default function GuideAdminPage() {
                       <button onClick={() => toggleGuide(guide.id, !guide.active)}
                         className={`px-3 py-1.5 rounded-lg text-xs transition ${guide.active ? 'bg-amber-900/20 text-amber-400 hover:bg-amber-900/40' : 'bg-green-900/20 text-green-400 hover:bg-green-900/40'}`}>
                         {guide.active ? 'Disattiva' : 'Attiva'}
+                      </button>
+                      <button
+                        onClick={() => notifyCustomers(guide)}
+                        disabled={notifying[guide.id]}
+                        className="px-3 py-1.5 rounded-lg bg-blue-900/20 text-xs text-blue-400 hover:bg-blue-900/40 transition disabled:opacity-50">
+                        {notifying[guide.id] ? 'Invio...' : 'Notifica'}
                       </button>
                       <button onClick={() => deleteGuide(guide.id, guide.title)}
                         className="px-3 py-1.5 rounded-lg bg-red-900/20 text-xs text-red-400 hover:bg-red-900/40 transition">
