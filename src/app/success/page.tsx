@@ -152,7 +152,10 @@ function SuccessContent() {
             </button>
           )}
           <p className="text-xs text-gray-500">
-            Controlla la tua email per il link di download, oppure contattaci per assistenza.
+            Controlla la tua email per il link di download, oppure contattaci per assistenza:
+            {' '}<a href="mailto:andrea.padoan@gmail.com" className="text-cyan-400 hover:underline">andrea.padoan@gmail.com</a>
+            {' | '}
+            <a href="https://wa.me/393478881515" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:underline">WhatsApp</a>
           </p>
         </div>
       )}

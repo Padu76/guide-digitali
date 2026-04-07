@@ -64,7 +64,8 @@ export async function sendPurchaseEmail(params: {
 
     <div style="text-align:center;padding:20px 0;border-top:1px solid #1f2937;">
       <p style="color:#6b7280;font-size:13px;margin:0;">
-        Hai bisogno di aiuto? Rispondi a questa email.
+        Hai bisogno di aiuto? Scrivi a <a href="mailto:andrea.padoan@gmail.com" style="color:#06b6d4;">andrea.padoan@gmail.com</a>
+        oppure contattaci su <a href="https://wa.me/393478881515" style="color:#22c55e;">WhatsApp</a>.
       </p>
       <p style="color:#4b5563;font-size:12px;margin:8px 0 0;">
         Guide digitali premium.

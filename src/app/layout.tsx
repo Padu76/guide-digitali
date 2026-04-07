@@ -3,6 +3,7 @@
 
 import type { Metadata } from 'next';
 import { CartProvider } from '@/components/CartProvider';
+import CookieBanner from '@/components/CookieBanner';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -17,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CartProvider>
           <div className="min-h-screen bg-[#050510] text-gray-100">
             {children}
+            <CookieBanner />
           </div>
         </CartProvider>
       </body>
