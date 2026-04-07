@@ -426,6 +426,15 @@ export default function GuideAdminPage() {
                       >
                         {pdfGenerating[guide.id] ? 'Generando...' : 'Genera PDF'}
                       </button>
+                      {guide.pdf_path && (
+                        <a
+                          href={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/guide-pdfs/${guide.pdf_path}`}
+                          download
+                          target="_blank"
+                          className="px-3 py-1.5 rounded-lg bg-green-900/20 text-xs text-green-400 hover:bg-green-900/40 transition">
+                          Scarica PDF
+                        </a>
+                      )}
                       <a href={`/${guide.slug}`} target="_blank"
                         className="px-3 py-1.5 rounded-lg bg-white/5 text-xs text-gray-400 hover:text-white transition">
                         Store
