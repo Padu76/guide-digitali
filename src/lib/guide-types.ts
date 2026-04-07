@@ -1,7 +1,7 @@
 // E:\guide-digitali\src\lib\guide-types.ts
 // Tipi TypeScript per GuideDigitali store
 
-export type GuideCategory = 'fitness' | 'business' | 'mindset' | 'biohacking';
+export type GuideCategory = 'fitness' | 'business' | 'mindset' | 'biohacking' | 'alimentazione';
 
 export interface GuideProduct {
   id: string;

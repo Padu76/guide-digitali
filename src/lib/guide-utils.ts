@@ -54,10 +54,20 @@ export const CATEGORY_CONFIG: Record<GuideCategory, {
     gradientTo: 'to-emerald-700',
     textColor: 'text-emerald-400',
   },
+  alimentazione: {
+    label: 'Alimentazione & Nutrizione',
+    color: 'green',
+    bgColor: 'bg-green-500/10',
+    borderColor: 'border-green-500/30',
+    glowColor: 'rgba(34, 197, 94, 0.4)',
+    gradientFrom: 'from-green-500',
+    gradientTo: 'to-green-700',
+    textColor: 'text-green-400',
+  },
 };
 
 // Tutte le categorie in ordine
-export const ALL_CATEGORIES: GuideCategory[] = ['fitness', 'business', 'mindset', 'biohacking'];
+export const ALL_CATEGORIES: GuideCategory[] = ['fitness', 'business', 'mindset', 'biohacking', 'alimentazione'];
 
 // Bundle discount disabilitato
 export function calculateBundleDiscount(itemCount: number, subtotal: number): number {

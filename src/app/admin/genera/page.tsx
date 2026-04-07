@@ -28,6 +28,11 @@ const CATEGORIES: Record<GuideCategory, { label: string; color: string; placehol
     color: '#ec4899',
     placeholder: 'Es: Protocollo sonno ottimale, con tecniche, integratori e tracking settimanale',
   },
+  alimentazione: {
+    label: 'Alimentazione & Nutrizione',
+    color: '#22c55e',
+    placeholder: 'Es: Piano alimentare 4 settimane per dimagrire, con ricette facili e lista della spesa',
+  },
 };
 
 interface GenerationResult {

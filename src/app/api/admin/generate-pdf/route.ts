@@ -17,6 +17,7 @@ const CATEGORY_COLORS: Record<GuideCategory, { primary: string; accent: string }
   business: { primary: '#8b5cf6', accent: '#7c3aed' },
   mindset: { primary: '#f59e0b', accent: '#d97706' },
   biohacking: { primary: '#ec4899', accent: '#db2777' },
+  alimentazione: { primary: '#22c55e', accent: '#16a34a' },
 };
 
 const CATEGORY_LABELS: Record<GuideCategory, string> = {
@@ -24,6 +25,7 @@ const CATEGORY_LABELS: Record<GuideCategory, string> = {
   business: 'Business & AI',
   mindset: 'Mindset & Produttivita',
   biohacking: 'Benessere & Performance',
+  alimentazione: 'Alimentazione & Nutrizione',
 };
 
 // Converte markdown in struttura sezioni
