@@ -11,6 +11,7 @@ const CATEGORY_CONTEXT: Record<string, string> = {
   business: 'Business, AI, automazione, produttivita aziendale, freelancing, strumenti digitali',
   mindset: 'Mindset, produttivita personale, abitudini, deep work, crescita personale, gestione del tempo',
   biohacking: 'Benessere, performance, biohacking, longevita, sonno, energia, routine salutari',
+  alimentazione: 'Alimentazione, nutrizione, dieta sana, snack salutari, pasti bilanciati, benessere alimentare, cibi naturali',
 };
 
 async function callGPT(messages: Array<{ role: string; content: string }>, maxTokens = 4096): Promise<string> {
@@ -35,6 +36,7 @@ async function generateImageDalle(chapterTitle: string, category: string): Promi
     business: 'modern office workspace, technology, clean desk setup, professional photography',
     mindset: 'calm productive environment, morning light, minimalist workspace, peaceful',
     biohacking: 'wellness lifestyle, morning routine, healthy living, natural light, modern',
+    alimentazione: 'healthy food photography, fresh ingredients, colorful balanced meal, natural lighting, editorial food style',
   };
   try {
     const res = await fetch('https://api.openai.com/v1/images/generations', {
@@ -58,6 +60,7 @@ async function generateImageLeonardo(chapterTitle: string, category: string): Pr
     business: 'modern business workspace, laptop, productivity, professional environment',
     mindset: 'calm morning routine, journaling, meditation, peaceful environment, golden hour',
     biohacking: 'wellness and health lifestyle, supplements, morning routine, cold plunge, biohacking setup',
+    alimentazione: 'healthy food on table, fresh fruits vegetables nuts, balanced nutrition, warm natural lighting, food photography',
   };
 
   try {

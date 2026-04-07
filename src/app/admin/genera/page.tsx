@@ -274,7 +274,7 @@ export default function GeneraGuidePage() {
         <div style="margin-bottom:28px;">
           <span style="background:${c};color:white;padding:8px 24px;border-radius:24px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${CATEGORIES[category].label}</span>
         </div>
-        <h1 style="font-size:38px;font-weight:800;color:#0f172a;margin:28px auto;line-height:1.15;max-width:500px;">${title}</h1>
+        <h1 style="font-size:38px;font-weight:800;color:#0f172a;margin:28px auto;line-height:1.15;max-width:500px;overflow:visible;text-indent:0;padding:0 8px;">${title}</h1>
         <div style="width:70px;height:4px;background:${c};margin:28px auto;border-radius:2px;"></div>
         <p style="color:#64748b;font-size:14px;max-width:400px;margin:0 auto;line-height:1.7;">Guida pratica e completa.<br>Scaricabile e stampabile.</p>
         <div style="margin-top:100px;">
@@ -478,7 +478,7 @@ export default function GeneraGuidePage() {
   <div style="margin-bottom:28px;">
     <span style="background:${c};color:white;padding:8px 24px;border-radius:24px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:2px;">${CATEGORIES[category].label}</span>
   </div>
-  <h1 style="font-size:38px;font-weight:800;color:#0f172a;margin:28px auto;line-height:1.15;max-width:500px;">${title}</h1>
+  <h1 style="font-size:38px;font-weight:800;color:#0f172a;margin:28px auto;line-height:1.15;max-width:500px;overflow:visible;text-indent:0;padding:0 8px;">${title}</h1>
   <div style="width:70px;height:4px;background:${c};margin:28px auto;border-radius:2px;"></div>
   <p style="color:#64748b;font-size:14px;max-width:400px;margin:0 auto;line-height:1.7;">Guida pratica e completa.<br>Scaricabile e stampabile.</p>
   <div style="margin-top:100px;">

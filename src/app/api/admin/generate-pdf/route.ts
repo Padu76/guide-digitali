@@ -165,7 +165,7 @@ function generateHTML(
     <div style="margin-bottom: 24px;">
       <span style="background: ${colors.primary}; color: white; padding: 6px 16px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">${label}</span>
     </div>
-    <h1 style="font-size: 36px; font-weight: 800; color: #0f172a; margin: 24px 0 16px; line-height: 1.2;">${title}</h1>
+    <h1 style="font-size: 36px; font-weight: 800; color: #0f172a; margin: 24px 0 16px; line-height: 1.2; overflow: visible; text-indent: 0; padding: 0 8px;">${title}</h1>
     <div style="width: 80px; height: 3px; background: ${colors.primary}; margin: 24px auto;"></div>
     <p style="color: #64748b; font-size: 14px; max-width: 400px; margin: 0 auto; line-height: 1.6;">Guida pratica e completa. Scaricabile e stampabile.</p>
     <div style="margin-top: 60px; color: #94a3b8; font-size: 11px;">
