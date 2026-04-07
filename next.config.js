@@ -6,6 +6,9 @@ const nextConfig = {
       { protocol: 'https', hostname: 'vzwplpljxdqmdejvzwuw.supabase.co' },
     ],
   },
+  experimental: {
+    serverComponentsExternalPackages: ['@sparticuz/chromium', 'puppeteer-core'],
+  },
 };
 
 module.exports = nextConfig;

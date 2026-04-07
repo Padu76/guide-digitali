@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "src/app/api/admin/generate-real-pdf/route.ts": {
+      "memory": 1024,
+      "maxDuration": 60
+    }
+  }
+}
