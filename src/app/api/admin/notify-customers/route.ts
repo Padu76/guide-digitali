@@ -24,23 +24,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Titolo e slug richiesti' }, { status: 400 });
     }
 
-    // Recupera tutte le email uniche dei clienti con ordini completati
-    const { data: orders, error: dbErr } = await supabase
+    // Recupera email da ordini completati + promo claims
+    const { data: orders } = await supabase
       .from('guide_orders')
       .select('email')
       .eq('status', 'completed');
 
-    if (dbErr) {
-      return NextResponse.json({ error: dbErr.message }, { status: 500 });
-    }
+    const { data: promoClaims } = await supabase
+      .from('guide_promo_claims')
+      .select('email');
 
-    // Email uniche
+    // Email uniche da entrambe le fonti
     const emailSet = new Set<string>();
     (orders || []).forEach(o => { if (o.email) emailSet.add(o.email); });
+    (promoClaims || []).forEach(p => { if (p.email) emailSet.add(p.email); });
     const emails = Array.from(emailSet);
 
     if (emails.length === 0) {
-      return NextResponse.json({ success: true, sent: 0, message: 'Nessun cliente trovato' });
+      return NextResponse.json({ success: true, sent: 0, message: 'Nessun contatto trovato' });
     }
 
     const guideUrl = `https://guidedigitali.vercel.app/${guideSlug}`;
