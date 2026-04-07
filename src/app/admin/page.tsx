@@ -18,9 +18,10 @@ export default function GuideAdminPage() {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
-  const [activeTab, setActiveTab] = useState<'orders' | 'guides'>('guides');
+  const [activeTab, setActiveTab] = useState<'orders' | 'guides' | 'contacts'>('guides');
   const [pdfGenerating, setPdfGenerating] = useState<Record<string, boolean>>({});
   const [pdfBulkProgress, setPdfBulkProgress] = useState<string>('');
+  const [promoClaims, setPromoClaims] = useState<Array<{ id: string; email: string; guide_slug: string; created_at: string; download_count: number }>>([]);
   const [notifying, setNotifying] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -37,6 +38,7 @@ export default function GuideAdminPage() {
       fetchStats();
       fetchOrders();
       fetchGuides();
+      fetchPromoClaims();
     }
   }, [authed, page, statusFilter]);
 
@@ -95,6 +97,18 @@ export default function GuideAdminPage() {
       }
     } catch (err) {
       console.error('Errore guide:', err);
+    }
+  }
+
+  async function fetchPromoClaims() {
+    try {
+      const res = await fetch('/api/admin/promo-claims');
+      if (res.ok) {
+        const data = await res.json();
+        setPromoClaims(data.claims || []);
+      }
+    } catch (err) {
+      console.error('Errore promo claims:', err);
     }
   }
 
@@ -334,6 +348,10 @@ export default function GuideAdminPage() {
             className={`px-5 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'orders' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
             Ordini ({total})
           </button>
+          <button onClick={() => setActiveTab('contacts')}
+            className={`px-5 py-2 rounded-md text-sm font-semibold transition ${activeTab === 'contacts' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'}`}>
+            Contatti Promo ({promoClaims.length})
+          </button>
         </div>
 
         {/* GUIDE PUBBLICATE */}
@@ -491,13 +509,14 @@ export default function GuideAdminPage() {
                   <th className="text-right p-3 text-xs text-gray-500 font-medium">Importo</th>
                   <th className="text-center p-3 text-xs text-gray-500 font-medium">Stato</th>
                   <th className="text-center p-3 text-xs text-gray-500 font-medium">Download</th>
+                  <th className="text-center p-3 text-xs text-gray-500 font-medium"></th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-gray-600">Caricamento...</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-gray-600">Caricamento...</td></tr>
                 ) : orders.length === 0 ? (
-                  <tr><td colSpan={6} className="p-8 text-center text-gray-600">Nessun ordine trovato</td></tr>
+                  <tr><td colSpan={7} className="p-8 text-center text-gray-600">Nessun ordine trovato</td></tr>
                 ) : (
                   orders.map(order => {
                     const items = order.items as { title: string }[];
@@ -524,6 +543,23 @@ export default function GuideAdminPage() {
                             ? <span className="text-green-400">{order.download_count}/2</span>
                             : <span className="text-gray-600">0/2</span>
                           }
+                        </td>
+                        <td className="p-3 text-center">
+                          {order.status !== 'completed' && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Eliminare ordine ${order.status} di ${order.email}?`)) return;
+                                try {
+                                  await fetch(`/api/admin/orders?id=${order.id}`, { method: 'DELETE' });
+                                  setOrders(prev => prev.filter(o => o.id !== order.id));
+                                  setTotal(prev => prev - 1);
+                                } catch { alert('Errore eliminazione'); }
+                              }}
+                              className="px-2 py-1 rounded text-[10px] bg-red-900/20 text-red-400 hover:bg-red-900/40 transition"
+                            >
+                              Elimina
+                            </button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -557,6 +593,43 @@ export default function GuideAdminPage() {
           </div>
         )}
         </>}
+
+        {/* CONTATTI PROMO */}
+        {activeTab === 'contacts' && (
+          <div className="rounded-xl border border-white/5 bg-[#0a0a1a] overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-white/5">
+                    <th className="text-left p-3 text-xs text-gray-500 font-medium">Data</th>
+                    <th className="text-left p-3 text-xs text-gray-500 font-medium">Email</th>
+                    <th className="text-left p-3 text-xs text-gray-500 font-medium">Guida scaricata</th>
+                    <th className="text-center p-3 text-xs text-gray-500 font-medium">Download</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {promoClaims.length === 0 ? (
+                    <tr><td colSpan={4} className="p-8 text-center text-gray-600">Nessun contatto promo</td></tr>
+                  ) : (
+                    promoClaims.map(claim => (
+                      <tr key={claim.id} className="border-b border-white/[0.02] hover:bg-white/[0.02]">
+                        <td className="p-3 text-gray-400 text-xs">{formatDate(claim.created_at)}</td>
+                        <td className="p-3 text-gray-300">{claim.email}</td>
+                        <td className="p-3 text-gray-400 text-xs">{claim.guide_slug}</td>
+                        <td className="p-3 text-center text-xs">
+                          <span className="text-green-400">{claim.download_count}/2</span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-4 border-t border-white/5 text-xs text-gray-500">
+              Totale contatti unici: {new Set(promoClaims.map(c => c.email)).size} email
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

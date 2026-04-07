@@ -46,3 +46,44 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const authCookie = request.cookies.get('guide_admin_auth');
+  if (!authCookie || authCookie.value !== 'authenticated') {
+    return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+  if (!id) {
+    return NextResponse.json({ error: 'ID mancante' }, { status: 400 });
+  }
+
+  const supabase = getSupabase();
+
+  // Solo ordini non completati possono essere eliminati
+  const { data: order } = await supabase
+    .from('guide_orders')
+    .select('status')
+    .eq('id', id)
+    .single();
+
+  if (!order) {
+    return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404 });
+  }
+
+  if (order.status === 'completed') {
+    return NextResponse.json({ error: 'Non puoi eliminare un ordine completato' }, { status: 400 });
+  }
+
+  const { error } = await supabase
+    .from('guide_orders')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true });
+}
