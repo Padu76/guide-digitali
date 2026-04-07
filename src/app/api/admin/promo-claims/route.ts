@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('guide_promo_claims')
-    .select('id, email, guide_slug, created_at, download_count')
+    .select('id, email, slug, created_at, download_count')
     .order('created_at', { ascending: false });
 
   if (error) {

@@ -21,7 +21,7 @@ export default function GuideAdminPage() {
   const [activeTab, setActiveTab] = useState<'orders' | 'guides' | 'contacts'>('guides');
   const [pdfGenerating, setPdfGenerating] = useState<Record<string, boolean>>({});
   const [pdfBulkProgress, setPdfBulkProgress] = useState<string>('');
-  const [promoClaims, setPromoClaims] = useState<Array<{ id: string; email: string; guide_slug: string; created_at: string; download_count: number }>>([]);
+  const [promoClaims, setPromoClaims] = useState<Array<{ id: string; email: string; slug: string; created_at: string; download_count: number }>>([]);
   const [notifying, setNotifying] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -615,7 +615,7 @@ export default function GuideAdminPage() {
                       <tr key={claim.id} className="border-b border-white/[0.02] hover:bg-white/[0.02]">
                         <td className="p-3 text-gray-400 text-xs">{formatDate(claim.created_at)}</td>
                         <td className="p-3 text-gray-300">{claim.email}</td>
-                        <td className="p-3 text-gray-400 text-xs">{claim.guide_slug}</td>
+                        <td className="p-3 text-gray-400 text-xs">{claim.slug}</td>
                         <td className="p-3 text-center text-xs">
                           <span className="text-green-400">{claim.download_count}/2</span>
                         </td>
