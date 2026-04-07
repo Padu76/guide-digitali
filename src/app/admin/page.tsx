@@ -364,6 +364,7 @@ export default function GuideAdminPage() {
                           <option value="business">Business & AI</option>
                           <option value="mindset">Mindset & Produttivita</option>
                           <option value="biohacking">Biohacking: Benessere & Performance</option>
+                          <option value="alimentazione">Alimentazione & Nutrizione</option>
                         </select>
                         {!guide.active && <span className="text-[10px] px-2 py-0.5 rounded bg-red-900/20 text-red-400 border border-red-900">Disattivata</span>}
                       </div>
